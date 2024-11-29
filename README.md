@@ -87,7 +87,7 @@ console.log(`Result: ${result}`) // Output: 8
 
 ### If conditional
 
-This method returns `1` if the first argument is greater than the second one, and `0` if not:
+This instruction pushes `1` to the stack, if the first argument is greater than the second one, and `0` if not:
 ```ts
 const isGreaterThan: FunctionDefinition = {
 	name: 'isGreaterThan',
