@@ -1,7 +1,7 @@
 
 import { Op } from "./Ops.js"
 import { Timer } from "./utilities/Timer.js"
-import { NumberTypeId, WasmModuleDefinition, buildWasmModule } from "./WasmBuilder.js"
+import { NumberTypeId, WasmModuleDefinition, buildWasmModule } from "./WasmComposer.js"
 
 const log = console.log
 

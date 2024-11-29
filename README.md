@@ -1,6 +1,6 @@
-# WebAssembly builder
+# WebAssembly module composer
 
-A lightweight, pure TypeScript library that efficiently builds and encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`), allowing WebAssembly modules to be instantly created, encoded, and executed at runtime, with minimal overhead.
+A lightweight, pure TypeScript library that efficiently builds and encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`). Includes composable, function-based instruction wrappers, allowing WebAssembly modules to be instantly created, encoded, and executed at runtime, with minimal overhead.
 
 * Implements the full **[WebAssembly 2.0 binary format](https://webassembly.github.io/spec/core/binary/index.html)** specification
 * Supports **all Phase 5, and some phase 4 extensions**, including bulk memory operations, garbage collection, multiple memories, multi-value, mutable globals, reference types, relaxed SIMD, typed function references, tail calls and atomics
@@ -24,13 +24,13 @@ Please report any issue you encounter! Inspect the code if needed. That's the fa
 ## Installation
 
 ```sh
-npm install wasm-builder
+npm install wasm-composer
 ```
 
 ## Usage
 
 ```ts
-import { buildWasmModule } from 'wasm-builder'
+import { buildWasmModule } from 'wasm-composer'
 
 // ...
 
@@ -43,7 +43,7 @@ const wasmBytes = buildWasmModule(moduleDefinition)
 Define a new WebAssembly module, including an exported function called `add` that computes the sum of two 32 bit integers:
 
 ```ts
-import { buildWasmModule, WasmModuleDefinition, Type, Op } from 'wasm-builder'
+import { buildWasmModule, WasmModuleDefinition, Type, Op } from 'wasm-composer'
 
 const moduleDefinition: WasmModuleDefinition = {
 	functions: [
@@ -329,14 +329,14 @@ The exact type for each section of the module is documented and maintained in th
 ### Auto-generated metadata
 
 * Given a list of function definitions and custom types, it automatically fills the `function`, `types` and `exports` sections with the needed entries, saving the need to manually manage them
-* A core design decision of `wasm-builder` is to **only use named references**. Functions, locals, globals, instruction blocks, memories, tables, elements, data entries, and custom types are all referenced by a string identifier, which is automatically resolved to an internal index number when the module is built
+* A core design decision of `wasm-composer` is to **only use named references**. Functions, locals, globals, instruction blocks, memories, tables, elements, data entries, and custom types are all referenced by a string identifier, which is automatically resolved to an internal index number when the module is built
 * Sections that accept instructions, like the `tables` or `elements` sections, use the same instruction syntax used for function bodies
 
 ## Opcode table
 
 You can import the opcode table directly:
 ```ts
-import { wasmOpcodes } from 'wasm-builder'
+import { wasmOpcodes } from 'wasm-composer'
 ```
 
 ## Future

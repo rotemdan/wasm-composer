@@ -1,7 +1,7 @@
 {
-	"name": "wasm-builder",
+	"name": "wasm-composer",
 	"version": "0.1.0",
-	"description": "Builds and encodes a WebAssembly module definition to its raw binary format. Written in pure TypeScript.",
+	"description": "Builds and encodes a WebAssembly module definition to its raw binary format, including composable, function-based instruction wrappers. Written in pure TypeScript.",
 	"author": "Rotem Dan",
 	"license": "MIT",
 	"keywords": [
@@ -12,12 +12,12 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/rotemdan/wasm-builder"
+		"url": "https://github.com/rotemdan/wasm-composer"
 	},
 	"bugs": {
-		"url": "https://github.com/rotemdan/wasm-builder/issues"
+		"url": "https://github.com/rotemdan/wasm-composer/issues"
 	},
-	"main": "./dist/WasmBuilder.js",
+	"main": "./dist/WasmComposer.js",
 	"type": "module",
 	"files": [
 		"dist",

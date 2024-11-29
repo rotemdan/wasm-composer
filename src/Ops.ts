@@ -1,6 +1,6 @@
 import { OpcodeName } from './Opcodes.js'
 import { isArray, isBigInt, isString } from './utilities/Utilities.js'
-import { BlockInstruction, emptyType, HeapTypeId, ImmediateType, Instruction, ValueType } from './WasmBuilder.js'
+import { BlockInstruction, emptyType, HeapTypeId, ImmediateType, Instruction, ValueType } from './WasmComposer.js'
 
 export const Op = {
 	////////////////////////////////////////////////////////////////////////////////////////////////
