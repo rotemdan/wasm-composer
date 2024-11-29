@@ -1,0 +1,37 @@
+{
+	"name": "wasm-builder",
+	"version": "0.1.0",
+	"description": "Builds and encodes a WebAssembly module definition to its raw binary format. Written in pure TypeScript.",
+	"author": "Rotem Dan",
+	"license": "MIT",
+	"keywords": [
+		"WebAssembly",
+		"WASM",
+		"WebAssembly builder",
+		"WebAssembly binary format"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/rotemdan/wasm-builder"
+	},
+	"bugs": {
+		"url": "https://github.com/rotemdan/wasm-builder/issues"
+	},
+	"main": "./dist/WasmBuilder.js",
+	"type": "module",
+	"files": [
+		"dist",
+		"src",
+		"tsconfig.json",
+		"LICENSE.md",
+		"README.md"
+	],
+	"scripts": {
+		"test": "node dist/Test.js"
+	},
+	"dependencies": {
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.1"
+	}
+}
