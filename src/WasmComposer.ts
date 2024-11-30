@@ -3,6 +3,7 @@ import { OpcodeName, wasmOpcodes } from './Opcodes.js'
 import { encodeUTF8, float32ToBytes, float64ToBytes } from './utilities/Utilities.js'
 import { createDynamicNumberArray } from './utilities/DynamicNumberArray.js'
 import { DynamicNumericArray } from './utilities/DynamicArray.js'
+import { Op } from './Ops.js'
 
 export { wasmOpcodes } from './Opcodes.js'
 export { Op } from './Ops.js'
@@ -491,6 +492,7 @@ export class WasmEncoder {
 			}
 
 			entryEmitter.emitInstructions(entry.instructions, instructionContext)
+			entryEmitter.emitInstruction(Op.end, instructionContext)
 
 			sectionEncoder.emitLengthPrefixedBytes(entryEmitter.bytes)
 		}
@@ -563,8 +565,20 @@ export class WasmEncoder {
 	}
 
 	emitFlattenedInstructions(instructions: Instruction[], context: InstructionContext) {
-		for (const instruction of instructions) {
+		for (let instructionIndex = 0; instructionIndex < instructions.length; instructionIndex++) {
+			const instruction = instructions[instructionIndex]
+
 			this.emitInstruction(instruction, context)
+
+			const opcodeName = instruction.opcodeName
+
+			if (opcodeName === 'block' ||
+				opcodeName === 'loop' ||
+				opcodeName === 'else' ||
+				(opcodeName === 'if' && instructions[instructionIndex + 1]?.opcodeName !== 'else')) {
+
+				this.emitInstruction(Op.end, context)
+			}
 		}
 	}
 

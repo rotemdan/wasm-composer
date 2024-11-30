@@ -20,8 +20,6 @@ async function test() {
 					Op.local.get('num1'),
 					Op.local.get('num2'),
 					Op.i32.add,
-
-					Op.end, // function
 				],
 			},
 			{
@@ -47,9 +45,6 @@ async function test() {
 					Op.else([
 						Op.i32.const(0)
 					]),
-					Op.end, // if
-
-					Op.end, // function
 				],
 			},
 			{
@@ -88,13 +83,10 @@ async function test() {
 							// Jump to the start of the loop block
 							Op.br('mainLoop'),
 						]),
-						Op.end // if
 					]),
-					Op.end, // loop
 
 					// Put the value on the stack to return it
 					Op.local.get('value'),
-					Op.end, // function
 				],
 			},
 		]
