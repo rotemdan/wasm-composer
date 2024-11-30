@@ -170,7 +170,7 @@ const add10_KTimes: FunctionDefinition = {
 },
 ```
 
-## Macros and meta-operations
+## Macros and code generators
 
 Since the instruction builder uses JavaScript, we can naturally make helper functions that generate code fragments based on configurable sets of arguments.
 
