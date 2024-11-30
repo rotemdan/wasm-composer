@@ -1,13 +1,13 @@
 {
 	"name": "wasm-composer",
-	"version": "0.1.0",
-	"description": "Builds and encodes a WebAssembly module definition to its raw binary format. Includes composable, function-based instruction wrappers. Written in pure TypeScript.",
+	"version": "0.2.0",
+	"description": "Encodes a WebAssembly module definition to its raw binary format. Includes composable, function-based instruction wrappers. Written in pure TypeScript.",
 	"author": "Rotem Dan",
 	"license": "MIT",
 	"keywords": [
 		"WebAssembly",
 		"WASM",
-		"WebAssembly builder",
+		"WebAssembly encoder",
 		"WebAssembly binary format"
 	],
 	"repository": {

@@ -1,7 +1,7 @@
 
 import { Op } from "./Ops.js"
 import { Timer } from "./utilities/Timer.js"
-import { NumberTypeId, WasmModuleDefinition, buildWasmModule } from "./WasmComposer.js"
+import { NumberType, WasmModuleDefinition, encodeWasmModule } from "./WasmComposer.js"
 
 const log = console.log
 
@@ -12,8 +12,8 @@ async function test() {
 				name: 'add',
 				export: true,
 
-				params: { num1: NumberTypeId.i32, num2: NumberTypeId.i32 },
-				returns: NumberTypeId.i32,
+				params: { num1: NumberType.i32, num2: NumberType.i32 },
+				returns: NumberType.i32,
 
 				instructions: [
 					// Add the two integers, and leave the result on the stack
@@ -28,8 +28,8 @@ async function test() {
 				name: 'isGreaterThan',
 				export: true,
 
-				params: { num1: NumberTypeId.i32, num2: NumberTypeId.i32 },
-				returns: NumberTypeId.i32,
+				params: { num1: NumberType.i32, num2: NumberType.i32 },
+				returns: NumberType.i32,
 
 				instructions: [
 					// Compare the two integers
@@ -41,7 +41,7 @@ async function test() {
 					//
 					// `returns: Type.i32` means the type of the value that the `if` block should put
 					// on the stack when it ends should be `i32`
-					Op.if({ returns: NumberTypeId.i32 }, [
+					Op.if({ returns: NumberType.i32 }, [
 						Op.i32.const(1),
 					]),
 					Op.else([
@@ -56,10 +56,10 @@ async function test() {
 				name: 'add10_KTimes', // Add 10 to the target number k times
 				export: true,
 
-				params: { value: NumberTypeId.i32, k: NumberTypeId.i32 },
-				returns: NumberTypeId.i32,
+				params: { value: NumberType.i32, k: NumberType.i32 },
+				returns: NumberType.i32,
 
-				locals: { counter: NumberTypeId.i32 },
+				locals: { counter: NumberType.i32 },
 
 				instructions: [
 					Op.loop('mainLoop', [
@@ -104,7 +104,7 @@ async function test() {
 
 	const timer = new Timer()
 	for (let i = 0; i < 10000; i++) {
-		wasmBytes = buildWasmModule(wasmModuleDefinition)
+		wasmBytes = encodeWasmModule(wasmModuleDefinition)
 	}
 	timer.logAndRestart('Build WASM')
 

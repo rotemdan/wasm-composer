@@ -1,14 +1,14 @@
-# WebAssembly module composer
+# WebAssembly composer
 
-A lightweight, pure TypeScript library that efficiently builds and encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`). Includes composable, function-based instruction wrappers, allowing WebAssembly modules to be instantly created, encoded, and executed at runtime, with minimal overhead.
+A lightweight, pure TypeScript library that efficiently encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`). Includes composable, function-based instruction wrappers, allowing WebAssembly modules to be dynamically specified, encoded, and executed at runtime, with minimal overhead.
 
 * Implements the full **[WebAssembly 2.0 binary format](https://webassembly.github.io/spec/core/binary/index.html)** specification
 * Supports **all Phase 5, and some phase 4 extensions**, including bulk memory operations, garbage collection, multiple memories, multi-value, mutable globals, reference types, relaxed SIMD, typed function references, tail calls and atomics
 * Supports nearly **all WebAssembly instructions**, up to the latest, experimental ones. Opcode lookup table is extracted [directly from the V8 source code](https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h) and continuously updated
-* Includes **composable, function-based wrappers** for all WebAssembly instructions, with a syntax that directly reflects the underlying WebAssembly program structure, and attempts to simplify over the more LISP-styled WAT syntax
-* JavaScript instruction builder naturally provides the ability to define convenient and powerful **macros and code generators**
-* Runs on **all JavaScript runtimes**, including Node.js, Deno, Bun, Chromium, Firefox and Safari
-* **Optimized for speed**. Takes a few microseconds (1/1000 millisecond) to build and encode the minimal example below (by comparison, the instantiation time of the resulting binary buffer is significantly longer)
+* Includes **composable, function-based instruction wrappers**, with a syntax that directly reflects the underlying WebAssembly program structure, and attempts to simplify over the more LISP-styled WAT syntax
+* TypeScript-based instruction syntax naturally enables the ability to define convenient and powerful **macros and code generators**
+* Runs on **all major JavaScript runtimes**, including Node.js, Deno, Bun, Chromium, Firefox and Safari
+* **Optimized for speed**. Takes a few microseconds (1/1000 millisecond) to build and encode the minimal example below (by comparison, the instantiation time of the resulting binary is significantly longer)
 * No dependencies
 
 ### Currently experimental
@@ -30,20 +30,20 @@ npm install wasm-composer
 ## Usage
 
 ```ts
-import { buildWasmModule } from 'wasm-composer'
+import { encodeWasmModule } from 'wasm-composer'
 
 // ...
 
-const wasmBytes = buildWasmModule(moduleDefinition)
+const wasmBytes = encodeWasmModule(moduleDefinition)
 ```
 
 
 ## Minimal example
 
-Define a new WebAssembly module, including an exported function called `add` that computes the sum of two 32 bit integers:
+Define a new WebAssembly module, including an exported function called `add` that computes the sum of two 32 bit integers, encodes it to a binary `Uint8Array`, instantiates and runs it:
 
 ```ts
-import { buildWasmModule, WasmModuleDefinition, Type, Op } from 'wasm-composer'
+import { encodeWasmModule, WasmModuleDefinition, NumberType, Op } from 'wasm-composer'
 
 const moduleDefinition: WasmModuleDefinition = {
 	functions: [
@@ -51,8 +51,8 @@ const moduleDefinition: WasmModuleDefinition = {
 			name: 'add',
 			export: true,
 
-			params: { num1: Type.i32, num2: Type.i32 }, // Parameter names and types
-			returns: Type.i32, // Return type
+			params: { num1: NumberType.i32, num2: NumberType.i32 }, // Parameter names and types
+			returns: NumberType.i32, // Return type
 
 			instructions: [
 				// Add the two integers, and leave the result on the stack
@@ -67,8 +67,8 @@ const moduleDefinition: WasmModuleDefinition = {
 	],
 }
 
-// Build the module specification object and encode it to a binary Uint8Array
-const wasmBytes = buildWasmModule(moduleDefinition)
+// Encode the module definition object to a binary Uint8Array
+const wasmBytes = encodeWasmModule(moduleDefinition)
 
 // Instantiate the WASM bytes
 const wasmModuleInstance = await WebAssembly.instantiate(wasmBytes)
@@ -83,7 +83,7 @@ const result = (moduleExports.add as Function)(5, 3)
 console.log(`Result: ${result}`) // Output: 8
 ```
 
-## More examples of the function builder
+## More examples of the instruction syntax
 
 ### If conditional
 
@@ -93,8 +93,8 @@ const isGreaterThan: FunctionDefinition = {
 	name: 'isGreaterThan',
 	export: true,
 
-	params: { num1: Type.i64, num2: Type.i64 },
-	returns: Type.i32,
+	params: { num1: NumberType.i64, num2: NumberType.i64 },
+	returns: NumberType.i32,
 
 	instructions: [
 		// Compare the two integers
@@ -104,9 +104,9 @@ const isGreaterThan: FunctionDefinition = {
 
 		// Check the comparison result
 		//
-		// `returns: Type.i32` means the type of the value that the `if..else` block puts
-		// on the stack when it ends should be `i32`
-		Op.if({ returns: Type.i32 }, [
+		// `returns: NumberType.i32` means the type of the value that the `if..else` block puts
+		// on the stack, when it ends, should be `i32`
+		Op.if({ returns: NumberType.i32 }, [
 			Op.i32.const(1), // Push the constant `1` to the stack
 		]),
 		Op.else([
@@ -127,10 +127,10 @@ const add10_KTimes: FunctionDefinition = {
 	name: 'add10_KTimes',
 	export: true,
 
-	params: { value: Type.i32, k: Type.i32 },
-	returns: Type.i32,
+	params: { value: NumberType.i32, k: NumberType.i32 },
+	returns: NumberType.i32,
 
-	locals: { counter: Type.i32 },
+	locals: { counter: NumberType.i32 },
 
 	instructions: [
 		Op.loop('adderLoop', [
@@ -193,8 +193,8 @@ const add: FunctionDefinition = {
 	name: 'add',
 	export: true,
 
-	params: { num1: Type.i32, num2: Type.i32 }, // Parameter names and types
-	returns: Type.i32, // Return type
+	params: { num1: NumberType.i32, num2: NumberType.i32 }, // Parameter names and types
+	returns: NumberType.i32, // Return type
 
 	instructions: [
 		// Add the two i32 locals, and leave the result on the stack
@@ -244,10 +244,10 @@ const add10_KTimes: FunctionDefinition = {
 	name: 'add10_KTimes',
 	export: true,
 
-	params: { value: Type.i32, k: Type.i32 },
-	returns: Type.i32,
+	params: { value: NumberType.i32, k: NumberType.i32 },
+	returns: NumberType.i32,
 
-	locals: { counter: Type.i32 },
+	locals: { counter: NumberType.i32 },
 
 	instructions: [
 		// Initialize `counter` to 0

@@ -7,18 +7,18 @@ import { DynamicNumericArray } from './utilities/DynamicArray.js'
 export { wasmOpcodes } from './Opcodes.js'
 export { Op } from './Ops.js'
 
-export function buildWasmModule(moduleDefinition: WasmModuleDefinition) {
-	const moduleBuilder = createWasmBuilder()
-	moduleBuilder.emitModule(moduleDefinition)
+export function encodeWasmModule(moduleDefinition: WasmModuleDefinition) {
+	const encoder = createWasmEncoder()
+	encoder.emitModule(moduleDefinition)
 
-	return moduleBuilder.bytesAsUint8Array
+	return encoder.bytesAsUint8Array
 }
 
-export function createWasmBuilder() {
-	return new WasmBuilder()
+export function createWasmEncoder() {
+	return new WasmEncoder()
 }
 
-export class WasmBuilder {
+export class WasmEncoder {
 	private outputBytes: DynamicNumericArray = createDynamicNumberArray()
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -176,15 +176,15 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Types)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(types.length)
+		sectionEncoder.emitUint(types.length)
 
 		for (const type of types) {
-			sectionBuilder.emitSubtypeOrRecursiveType(type)
+			sectionEncoder.emitSubtypeOrRecursiveType(type)
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	emitSubtypeOrRecursiveType(type: SubtypeOrRecursiveType) {
@@ -246,31 +246,31 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Imports)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(importEntries.length)
+		sectionEncoder.emitUint(importEntries.length)
 
 		for (const entry of importEntries) {
 			const description = entry.description
 
-			sectionBuilder.emitString(entry.moduleName)
-			sectionBuilder.emitString(entry.importName)
-			sectionBuilder.emitByte(description.type)
+			sectionEncoder.emitString(entry.moduleName)
+			sectionEncoder.emitString(entry.importName)
+			sectionEncoder.emitByte(description.type)
 
 			if (description.type === ImportKind.Function) {
-				sectionBuilder.emitUint(description.index)
+				sectionEncoder.emitUint(description.index)
 			} else if (description.type === ImportKind.Table) {
-				sectionBuilder.emitTableEntry(description.tableEntry)
+				sectionEncoder.emitTableEntry(description.tableEntry)
 			} else if (description.type === ImportKind.Memory) {
-				sectionBuilder.emitLimits(description.memoryLimits)
+				sectionEncoder.emitLimits(description.memoryLimits)
 			} else if (description.type === ImportKind.Global) {
-				sectionBuilder.emitGlobalType(description.globalType)
+				sectionEncoder.emitGlobalType(description.globalType)
 			} else {
 				throw new TypeError(`Invalid import entry type ${(entry as ImportEntry).description.type}`)
 			}
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -283,14 +283,14 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Functions)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
 		// This assumes that function types start at 0, and then followed by custom types
-		const functionIndexes = functionDefinitions.map((entry, index) => index)
+		const functionTypeIndexes = functionDefinitions.map((entry, index) => index)
 
-		sectionBuilder.emitLengthPrefixedUintArray(functionIndexes)
+		sectionEncoder.emitLengthPrefixedUintArray(functionTypeIndexes)
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -303,15 +303,15 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Tables)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(tableEntries.length)
+		sectionEncoder.emitUint(tableEntries.length)
 
 		for (const entry of tableEntries) {
-			sectionBuilder.emitTableEntry(entry)
+			sectionEncoder.emitTableEntry(entry)
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -324,15 +324,15 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Memory)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(memoryEntries.length)
+		sectionEncoder.emitUint(memoryEntries.length)
 
 		for (const entry of memoryEntries) {
-			sectionBuilder.emitLimits(entry)
+			sectionEncoder.emitLimits(entry)
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -345,16 +345,16 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Globals)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(globalEntries.length)
+		sectionEncoder.emitUint(globalEntries.length)
 
 		for (const entry of globalEntries) {
-			sectionBuilder.emitGlobalType(entry)
-			sectionBuilder.emitInstructions(entry.instructions, instructionContext)
+			sectionEncoder.emitGlobalType(entry)
+			sectionEncoder.emitInstructions(entry.instructions, instructionContext)
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -367,17 +367,17 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Exports)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(exportEntries.length)
+		sectionEncoder.emitUint(exportEntries.length)
 
 		for (const entry of exportEntries) {
-			sectionBuilder.emitString(entry.name)
-			sectionBuilder.emitByte(entry.kind)
-			sectionBuilder.emitUint(entry.index)
+			sectionEncoder.emitString(entry.name)
+			sectionEncoder.emitByte(entry.kind)
+			sectionEncoder.emitUint(entry.index)
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -399,49 +399,49 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Elements)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(elementEntries.length)
+		sectionEncoder.emitUint(elementEntries.length)
 
 		for (const entry of elementEntries) {
-			sectionBuilder.emitByte(entry.flags)
+			sectionEncoder.emitByte(entry.flags)
 
 			const elementKind = 0x00
 
 			if (entry.flags === ElementEntryType.ActiveTableZero) { // 0
-				sectionBuilder.emitInstructions(entry.instructions, instructionContext)
-				sectionBuilder.emitLengthPrefixedUintArray(entry.functionIndexes)
+				sectionEncoder.emitInstructions(entry.instructions, instructionContext)
+				sectionEncoder.emitLengthPrefixedUintArray(entry.functionIndexes)
 			} else if (entry.flags === ElementEntryType.Passive) { // 1
-				sectionBuilder.emitByte(elementKind)
-				sectionBuilder.emitLengthPrefixedUintArray(entry.functionIndexes)
+				sectionEncoder.emitByte(elementKind)
+				sectionEncoder.emitLengthPrefixedUintArray(entry.functionIndexes)
 			} else if (entry.flags === ElementEntryType.Active) { // 2
-				sectionBuilder.emitUint(entry.tableIndex)
-				sectionBuilder.emitInstructions(entry.instructions, instructionContext)
-				sectionBuilder.emitByte(elementKind)
-				sectionBuilder.emitLengthPrefixedUintArray(entry.functionIndexes)
+				sectionEncoder.emitUint(entry.tableIndex)
+				sectionEncoder.emitInstructions(entry.instructions, instructionContext)
+				sectionEncoder.emitByte(elementKind)
+				sectionEncoder.emitLengthPrefixedUintArray(entry.functionIndexes)
 			} else if (entry.flags === ElementEntryType.Declarative) { // 3
-				sectionBuilder.emitByte(elementKind)
-				sectionBuilder.emitLengthPrefixedUintArray(entry.functionIndexes)
+				sectionEncoder.emitByte(elementKind)
+				sectionEncoder.emitLengthPrefixedUintArray(entry.functionIndexes)
 			} else if (entry.flags === ElementEntryType.ActiveTableZeroWithInstructions) {  // 4
-				sectionBuilder.emitInstructions(entry.instructions, instructionContext)
-				sectionBuilder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
+				sectionEncoder.emitInstructions(entry.instructions, instructionContext)
+				sectionEncoder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
 			} else if (entry.flags === ElementEntryType.PassiveWithInstructions) { // 5
-				sectionBuilder.emitReferenceType(entry.referenceType)
-				sectionBuilder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
+				sectionEncoder.emitReferenceType(entry.referenceType)
+				sectionEncoder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
 			} else if (entry.flags === ElementEntryType.ActiveWithInstructions) { // 6
-				sectionBuilder.emitUint(entry.tableIndex)
-				sectionBuilder.emitInstructions(entry.instructions, instructionContext)
-				sectionBuilder.emitReferenceType(entry.referenceType)
-				sectionBuilder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
+				sectionEncoder.emitUint(entry.tableIndex)
+				sectionEncoder.emitInstructions(entry.instructions, instructionContext)
+				sectionEncoder.emitReferenceType(entry.referenceType)
+				sectionEncoder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
 			} else if (entry.flags === ElementEntryType.DeclarativeWithInstructions) { // 7
-				sectionBuilder.emitReferenceType(entry.referenceType)
-				sectionBuilder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
+				sectionEncoder.emitReferenceType(entry.referenceType)
+				sectionEncoder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
 			} else {
 				throw new TypeError(`Invalid element entry flags: ${(entry as ElementEntry).flags}`)
 			}
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -465,12 +465,12 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Code)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(functionDefinitions.length)
+		sectionEncoder.emitUint(functionDefinitions.length)
 
 		for (const entry of functionDefinitions) {
-			const entryBuilder = createWasmBuilder()
+			const entryEmitter = createWasmEncoder()
 
 			instructionContext.localsLookup = new Map()
 
@@ -482,20 +482,20 @@ export class WasmBuilder {
 
 			const localTypes = Object.values(entry.locals ?? {})
 
-			entryBuilder.emitUint(localTypes.length)
+			entryEmitter.emitUint(localTypes.length)
 
 			for (const localEntry of localTypes) {
-				///entryBuilder.emitUint(localEntry.count)
-				entryBuilder.emitUint(1)
-				entryBuilder.emitValueType(localEntry)
+				///entryEmitter.emitUint(localEntry.count)
+				entryEmitter.emitUint(1)
+				entryEmitter.emitValueType(localEntry)
 			}
 
-			entryBuilder.emitInstructions(entry.instructions, instructionContext)
+			entryEmitter.emitInstructions(entry.instructions, instructionContext)
 
-			sectionBuilder.emitLengthPrefixedBytes(entryBuilder.bytes)
+			sectionEncoder.emitLengthPrefixedBytes(entryEmitter.bytes)
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -508,28 +508,28 @@ export class WasmBuilder {
 
 		this.emitByte(SectionId.Data)
 
-		const sectionBuilder = createWasmBuilder()
+		const sectionEncoder = createWasmEncoder()
 
-		sectionBuilder.emitUint(dataEntries.length)
+		sectionEncoder.emitUint(dataEntries.length)
 
 		for (const entry of dataEntries) {
-			sectionBuilder.emitByte(entry.flags)
+			sectionEncoder.emitByte(entry.flags)
 
 			if (entry.flags === DataEntryType.ActiveMemoryZero) {
-				sectionBuilder.emitInstructions(entry.instructions, instructionContext)
-				sectionBuilder.emitLengthPrefixedBytes(entry.data)
+				sectionEncoder.emitInstructions(entry.instructions, instructionContext)
+				sectionEncoder.emitLengthPrefixedBytes(entry.data)
 			} else if (entry.flags === DataEntryType.Active) {
-				sectionBuilder.emitUint(entry.memoryIndex)
-				sectionBuilder.emitInstructions(entry.instructions, instructionContext)
-				sectionBuilder.emitLengthPrefixedBytes(entry.data)
+				sectionEncoder.emitUint(entry.memoryIndex)
+				sectionEncoder.emitInstructions(entry.instructions, instructionContext)
+				sectionEncoder.emitLengthPrefixedBytes(entry.data)
 			} else if (entry.flags === DataEntryType.Passive) {
-				sectionBuilder.emitLengthPrefixedBytes(entry.data)
+				sectionEncoder.emitLengthPrefixedBytes(entry.data)
 			} else {
 				throw new TypeError(`Invalid data section flags: ${(entry as DataEntry).flags}`)
 			}
 		}
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -538,11 +538,11 @@ export class WasmBuilder {
 	emitCustomSection(customSection: CustomSection) {
 		this.emitByte(SectionId.Custom)
 
-		const sectionBuilder = createWasmBuilder()
-		sectionBuilder.emitString(customSection.name)
-		sectionBuilder.emitBytes(customSection.content)
+		const sectionEncoder = createWasmEncoder()
+		sectionEncoder.emitString(customSection.name)
+		sectionEncoder.emitBytes(customSection.content)
 
-		this.emitLengthPrefixedBytes(sectionBuilder.bytes)
+		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -764,13 +764,13 @@ export const encodeUint = encodeUnsignedLeb128
 export const opcodeNameToBytes: { [key in keyof typeof wasmOpcodes]: number[] } = {} as any
 
 function initializeEncodedOpcodesTable() {
-	const opcodeBuilder = createWasmBuilder()
+	const opcodeEncoder = createWasmEncoder()
 
 	for (const key of Object.keys(wasmOpcodes)) {
-		opcodeBuilder.reset()
-		opcodeBuilder.emitOpcode((wasmOpcodes as any)[key]);
+		opcodeEncoder.reset()
+		opcodeEncoder.emitOpcode((wasmOpcodes as any)[key]);
 
-		(opcodeNameToBytes as any)[key] = Array.from(opcodeBuilder.bytes)
+		(opcodeNameToBytes as any)[key] = Array.from(opcodeEncoder.bytes)
 	}
 }
 
@@ -788,28 +788,26 @@ const enum SectionId {
 	Custom, Types, Imports, Functions, Tables, Memory, Globals, Exports, Start, Elements, Code, Data, DataCount
 }
 
-//export type DataTypeId = NumberTypeId | VectorTypeId | ReferenceType
-
-export type ValueType = NumberTypeId | VectorTypeId | ReferenceType
-export type StorageType = ValueType | PackedTypeId
+export type ValueType = NumberType | VectorType | ReferenceType
+export type StorageType = ValueType | PackedType
 
 export const enum DataTypeKind {
 	Value,
 	Reference
 }
 
-export const enum NumberTypeId {
+export const enum NumberType {
 	i32 = 0x7f,
 	i64 = 0x7e,
 	f32 = 0x7d,
 	f64 = 0x7c,
 }
 
-export const enum VectorTypeId {
+export const enum VectorType {
 	v128 = 0x7b
 }
 
-export const enum PackedTypeId {
+export const enum PackedType {
 	i8 = 0x78,
 	i16 = 0x77,
 }
@@ -887,7 +885,7 @@ export type ReferenceType =
 
 export interface ShortTypeIdReferenceType {
 	kind: ReferenceTypeKind.ShortTypeId
-	typeId: HeapTypeId
+	typeId: HeapType
 }
 
 export interface ShortTypeIndexReferenceType {
@@ -897,7 +895,7 @@ export interface ShortTypeIndexReferenceType {
 
 export interface LongNullableTypeIdReferenceType {
 	kind: ReferenceTypeKind.LongNullableTypeId
-	typeId: HeapTypeId
+	typeId: HeapType
 }
 
 export interface LongNullableTypeIndexReferenceType {
@@ -907,7 +905,7 @@ export interface LongNullableTypeIndexReferenceType {
 
 export interface LongNonNullableTypeIdReferenceType {
 	kind: ReferenceTypeKind.LongNonNullableTypeId
-	typeId: HeapTypeId
+	typeId: HeapType
 }
 
 export interface LongNonNullableTypeIndexReferenceType {
@@ -924,7 +922,7 @@ export const enum ReferenceTypeKind {
 	LongNonNullableTypeIndex,
 }
 
-export const enum HeapTypeId {
+export const enum HeapType {
 	nofunc = 0x73,
 	noextern = 0x72,
 	none = 0x71,
@@ -1236,7 +1234,7 @@ export function isBlockInstruction(instruction: Instruction): instruction is Blo
 	return Array.isArray((instruction as BlockInstruction).bodyInstructions)
 }
 
-export type ImmediatesEmitterFunc = (builder: WasmBuilder, context: InstructionContext) => void
+export type ImmediatesEmitterFunc = (emitter: WasmEncoder, context: InstructionContext) => void
 
 export interface InstructionContext {
 	functionsLookup: Map<string, number>
