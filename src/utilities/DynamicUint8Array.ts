@@ -12,7 +12,7 @@ export class DynamicUint8Array implements DynamicNumericArray {
 		this.elements = new Uint8Array(initialCapacity)
 	}
 
-	addValue(newValue: number) {
+	appendValue(newValue: number) {
 		if (this.length >= this.capacity) {
 			this.ensureCapacity(this.length + 1)
 		}
@@ -20,7 +20,7 @@ export class DynamicUint8Array implements DynamicNumericArray {
 		this.elements[this.length++] = newValue
 	}
 
-	addValues(newValues: ArrayLike<number>) {
+	appendValues(newValues: ArrayLike<number>) {
 		const addedCount = newValues.length
 		const requiredCapacity = this.length + addedCount
 

@@ -1,9 +1,10 @@
 import { encodeSignedLeb128, encodeUnsignedLeb128 } from './utilities/Leb128Encoder.js'
 import { OpcodeName, wasmOpcodes } from './Opcodes.js'
 import { encodeUTF8, float32ToBytes, float64ToBytes } from './utilities/Utilities.js'
-import { createDynamicNumberArray } from './utilities/DynamicNumberArray.js'
 import { DynamicNumericArray } from './utilities/DynamicArray.js'
 import { Op } from './Ops.js'
+import { createDynamicUint8Array } from './utilities/DynamicUint8Array.js'
+import { createDynamicNumberArray } from './utilities/DynamicNumberArray.js'
 
 export { wasmOpcodes } from './Opcodes.js'
 export { Op } from './Ops.js'
@@ -20,7 +21,8 @@ export function createWasmEncoder() {
 }
 
 export class WasmEncoder {
-	private outputBytes: DynamicNumericArray = createDynamicNumberArray()
+	private outputBytes: DynamicNumericArray = createDynamicUint8Array(1024)
+	//private outputBytes: DynamicNumericArray = createDynamicNumberArray()
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Full module emitter
@@ -723,11 +725,11 @@ export class WasmEncoder {
 	}
 
 	emitByte(byte: number) {
-		this.outputBytes.addValue(byte)
+		this.outputBytes.appendValue(byte)
 	}
 
 	emitBytes(bytes: ArrayLike<number>) {
-		this.outputBytes.addValues(bytes)
+		this.outputBytes.appendValues(bytes)
 	}
 
 	emitInt(value: number | bigint) {
@@ -798,7 +800,7 @@ const preamble = [
 	0x01, 0x00, 0x00, 0x00, // Version number
 ]
 
-const enum SectionId {
+export const enum SectionId {
 	Custom, Types, Imports, Functions, Tables, Memory, Globals, Exports, Start, Elements, Code, Data, DataCount
 }
 
@@ -986,7 +988,6 @@ export interface CustomSection {
 	name: string
 	content: ArrayLike<number>
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // Imports section types

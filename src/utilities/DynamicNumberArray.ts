@@ -7,11 +7,11 @@ export function createDynamicNumberArray() {
 export class DynamicNumberArray implements DynamicNumericArray {
 	private elements: number[] = []
 
-	addValue(newValue: number) {
+	appendValue(newValue: number) {
 		this.elements.push(newValue)
 	}
 
-	addValues(newValues: ArrayLike<number>) {
+	appendValues(newValues: ArrayLike<number>) {
 		for (let i = 0; i < newValues.length; i++) {
 			this.elements.push(newValues[i])
 		}

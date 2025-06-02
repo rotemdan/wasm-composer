@@ -1,6 +1,6 @@
 export interface DynamicNumericArray {
-	addValue(newValue: number): void
-	addValues(newValues: ArrayLike<number>): void
+	appendValue(newValue: number): void
+	appendValues(newValues: ArrayLike<number>): void
 	clear(): void
 
 	values: ArrayLike<number>
