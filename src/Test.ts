@@ -9,6 +9,17 @@ async function test() {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		functions: [
 			{
+				name: 'doNothing',
+				export: true,
+
+				params: { },
+				returns: NumberType.i32,
+
+				instructions: [
+					Op.i32.const(0),
+				],
+			},
+			{
 				name: 'add',
 				export: true,
 
@@ -95,15 +106,19 @@ async function test() {
 	let wasmBytes: Uint8Array
 
 	const timer = new Timer()
+
 	for (let i = 0; i < 10000; i++) {
 		wasmBytes = encodeWasmModule(wasmModuleDefinition)
 	}
+
 	timer.logAndRestart('Build WASM')
 
 	const wasmModuleInstance = await WebAssembly.instantiate(wasmBytes!)
 
 	const moduleExports = wasmModuleInstance.instance.exports
-	const result = (moduleExports.add10_KTimes as Function)(10, 7)
+
+	const funcToTest = moduleExports.add10_KTimes as Function
+	const result = funcToTest(10, 7)
 
 	console.log(`Result: ${result}`)
 }
