@@ -654,7 +654,7 @@ export const Op = {
 			},
 
 			rmw8: {
-				add: createMemoryInstruction('i32.atomic.rmw8.add_u'),
+				add_u: createMemoryInstruction('i32.atomic.rmw8.add_u'),
 				sub_u: createMemoryInstruction('i32.atomic.rmw8.sub_u'),
 				and_u: createMemoryInstruction('i32.atomic.rmw8.and_u'),
 				xor_u: createMemoryInstruction('i32.atomic.rmw8.xor_u'),
@@ -663,7 +663,7 @@ export const Op = {
 			},
 
 			rmw16: {
-				add: createMemoryInstruction('i32.atomic.rmw16.add_u'),
+				add_u: createMemoryInstruction('i32.atomic.rmw16.add_u'),
 				sub_u: createMemoryInstruction('i32.atomic.rmw16.sub_u'),
 				and_u: createMemoryInstruction('i32.atomic.rmw16.and_u'),
 				xor_u: createMemoryInstruction('i32.atomic.rmw16.xor_u'),
@@ -772,7 +772,7 @@ export const Op = {
 			},
 
 			rmw8: {
-				add: createMemoryInstruction('i64.atomic.rmw8.add_u'),
+				add_u: createMemoryInstruction('i64.atomic.rmw8.add_u'),
 				sub_u: createMemoryInstruction('i64.atomic.rmw8.sub_u'),
 				and_u: createMemoryInstruction('i64.atomic.rmw8.and_u'),
 				xor_u: createMemoryInstruction('i64.atomic.rmw8.xor_u'),
@@ -781,7 +781,7 @@ export const Op = {
 			},
 
 			rmw16: {
-				add: createMemoryInstruction('i64.atomic.rmw16.add_u'),
+				add_u: createMemoryInstruction('i64.atomic.rmw16.add_u'),
 				sub_u: createMemoryInstruction('i64.atomic.rmw16.sub_u'),
 				and_u: createMemoryInstruction('i64.atomic.rmw16.and_u'),
 				xor_u: createMemoryInstruction('i64.atomic.rmw16.xor_u'),
@@ -790,7 +790,7 @@ export const Op = {
 			},
 
 			rmw32: {
-				add: createMemoryInstruction('i64.atomic.rmw32.add_u'),
+				add_u: createMemoryInstruction('i64.atomic.rmw32.add_u'),
 				sub_u: createMemoryInstruction('i64.atomic.rmw32.sub_u'),
 				and_u: createMemoryInstruction('i64.atomic.rmw32.and_u'),
 				xor_u: createMemoryInstruction('i64.atomic.rmw32.xor_u'),
@@ -1332,7 +1332,7 @@ function createBlockInstruction(opcodeName: 'block' | 'loop') {
 	}
 }
 
-export function createBranchInstruction(opcodeName: OpcodeName) {
+function createBranchInstruction(opcodeName: OpcodeName) {
 	return (targetBlockName: string): Instruction => ({
 		opcodeName,
 		args: [targetBlockName],
@@ -1349,7 +1349,7 @@ export function createBranchInstruction(opcodeName: OpcodeName) {
 	})
 }
 
-export function createGCTypeInstruction(opcodeName: OpcodeName) {
+function createGCTypeInstruction(opcodeName: OpcodeName) {
 	return (typeName: string): Instruction => ({
 		opcodeName,
 		args: [typeName],
@@ -1366,7 +1366,7 @@ export function createGCTypeInstruction(opcodeName: OpcodeName) {
 	})
 }
 
-export function createGCTypeInstructionWithFieldIndex(opcodeName: OpcodeName) {
+function createGCTypeInstructionWithFieldIndex(opcodeName: OpcodeName) {
 	return (typeName: string, fieldIndex: number): Instruction => ({
 		opcodeName,
 		args: [typeName, fieldIndex],
@@ -1384,7 +1384,7 @@ export function createGCTypeInstructionWithFieldIndex(opcodeName: OpcodeName) {
 	})
 }
 
-export function createTableInstruction(opcodeName: OpcodeName) {
+function createTableInstruction(opcodeName: OpcodeName) {
 	return (tableName: string): Instruction => ({
 		opcodeName,
 		args: [tableName],
@@ -1401,7 +1401,7 @@ export function createTableInstruction(opcodeName: OpcodeName) {
 	})
 }
 
-export function createMemoryInstruction(opcodeName: OpcodeName) {
+function createMemoryInstruction(opcodeName: OpcodeName) {
 	return (memoryName: string): Instruction => ({
 		opcodeName,
 		args: [memoryName],
@@ -1418,17 +1418,17 @@ export function createMemoryInstruction(opcodeName: OpcodeName) {
 	})
 }
 
-export function createMemoryReadWriteInstruction(opcodeName: OpcodeName) {
+function createMemoryReadWriteInstruction(opcodeName: OpcodeName) {
 	return (align: number, offset: number) =>
 		createSimpleInstruction(opcodeName, [align, offset])
 }
 
-export function createMemoryReadWriteInstructionWithLane(opcodeName: OpcodeName) {
+function createMemoryReadWriteInstructionWithLane(opcodeName: OpcodeName) {
 	return (align: number, offset: number, laneIndex: number) =>
 		createSimpleInstruction(opcodeName, [align, offset, laneIndex])
 }
 
-export function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_cast_fail') {
+function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_cast_fail') {
 	return (targetBlockName: string, type1: HeapType, type2: HeapType, branchOnType1Null = false, branchOnType2Null = false): Instruction => ({
 		opcodeName,
 		args: [targetBlockName, type1, type2, branchOnType1Null, branchOnType2Null],
@@ -1450,7 +1450,7 @@ export function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_
 	})
 }
 
-export function createSimpleInstruction(opcodeName: OpcodeName, immediates?: ImmediateType[]): Instruction {
+function createSimpleInstruction(opcodeName: OpcodeName, immediates?: ImmediateType[]): Instruction {
 	immediates = immediates ?? []
 
 	return {
@@ -1473,12 +1473,12 @@ let anonymousBlockCounter = 0
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Types
 ////////////////////////////////////////////////////////////////////////////////////////////////
-interface BlockOptions {
+export interface BlockOptions {
 	name: string
 	returns?: ValueType
 }
 
-interface IfOptions {
+export interface IfOptions {
 	returns?: ValueType
 }
 
