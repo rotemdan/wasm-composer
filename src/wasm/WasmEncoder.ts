@@ -1,13 +1,10 @@
-import { encodeSignedLeb128, encodeUnsignedLeb128 } from './utilities/Leb128Encoder.js'
+import { encodeSignedLeb128, encodeUnsignedLeb128 } from '../utilities/Leb128Encoder.js'
 import { OpcodeName, wasmOpcodes } from './Opcodes.js'
-import { encodeUtf8, float32ToBytes, float64ToBytes } from './utilities/Utilities.js'
-import { DynamicNumericArray } from './utilities/DynamicArray.js'
+import { encodeUtf8, float32ToBytes, float64ToBytes } from '../utilities/Utilities.js'
+import { DynamicNumericArray } from '../utilities/DynamicArray.js'
 import { Op } from './Ops.js'
-import { createDynamicUint8Array } from './utilities/DynamicUint8Array.js'
-import { createDynamicNumberArray } from './utilities/DynamicNumberArray.js'
-
-export { wasmOpcodes } from './Opcodes.js'
-export { Op } from './Ops.js'
+import { createDynamicUint8Array } from '../utilities/DynamicUint8Array.js'
+import { createDynamicNumberArray } from '../utilities/DynamicNumberArray.js'
 
 export function encodeWasmModule(moduleDefinition: WasmModuleDefinition) {
 	const encoder = createWasmEncoder()

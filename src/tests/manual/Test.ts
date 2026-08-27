@@ -1,7 +1,7 @@
 
-import { Op } from "./Ops.js"
-import { Timer } from "./utilities/Timer.js"
-import { NumberType, WasmModuleDefinition, encodeWasmModule } from "./WasmComposer.js"
+import { Op } from "../../wasm/Ops.js"
+import { Timer } from "../../utilities/Timer.js"
+import { NumberType, WasmModuleDefinition, encodeWasmModule } from "../../wasm/WasmEncoder.js"
 
 const log = console.log
 

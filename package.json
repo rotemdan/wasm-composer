@@ -17,7 +17,7 @@
 	"bugs": {
 		"url": "https://github.com/rotemdan/wasm-composer/issues"
 	},
-	"main": "./dist/WasmComposer.js",
+	"main": "./dist/exports/Exports.js",
 	"type": "module",
 	"files": [
 		"dist",
@@ -27,7 +27,7 @@
 		"README.md"
 	],
 	"scripts": {
-		"test": "node dist/Test.js"
+		"test": "node dist/tests/manual/Test.js"
 	},
 	"devDependencies": {
 		"@types/node": "^26.4.0",
