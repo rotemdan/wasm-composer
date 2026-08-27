@@ -2,16 +2,15 @@
 
 A lightweight, pure TypeScript library that efficiently encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`). Includes composable, function-based instruction wrappers, allowing WebAssembly modules to be dynamically specified, encoded, and executed at runtime, with minimal overhead.
 
-* Implements the full **[WebAssembly 3.0 binary format](https://webassembly.github.io/spec/core/binary/index.html)** specification
-* Supports **all Phase 5, and some phase 4 extensions**, including bulk memory operations, garbage collection, multiple memories, multi-value, mutable globals, reference types, relaxed SIMD, typed function references, tail calls and atomics
-* Supports nearly **all WebAssembly instructions**, up to the latest, experimental ones. Opcode lookup table is extracted [directly from the V8 source code](https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h) and continuously updated
+* Implements the full **[WebAssembly 3.0 binary format specification](https://webassembly.github.io/spec/core/binary/index.html)**
+* Supports nearly **all WebAssembly instructions**, up to the latest, experimental ones. Opcode lookup table is extracted [directly from the V8 source code](https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h) and updated periodically
 * Includes **composable, function-based instruction wrappers**, with a syntax that directly reflects the underlying WebAssembly program structure, and attempts to simplify over the more LISP-styled WAT syntax
 * TypeScript-based instruction syntax naturally enables the ability to define convenient and powerful **macros and code generators**
 * Runs on **all major JavaScript runtimes**, including Node.js, Deno, Bun, Chromium, Firefox and Safari
 * **Optimized for speed**. Takes a few microseconds (1/1000 millisecond) to build and encode the minimal example below (by comparison, the instantiation time of the resulting binary is significantly longer)
-* No dependencies
+* No runtime dependencies
 
-### Version `0.5.0` Critical Update
+### NOTE: Version `0.5.0` Critical Update
 
 **All** versions prior to `0.5.0` contained substantial issues with how the binary specification was interpreted, including a basic misinterpretation of how instruction codes should be encoded!
 
