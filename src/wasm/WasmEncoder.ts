@@ -249,13 +249,16 @@ export class WasmEncoder {
 			// Subtype with supertypes: 0x4F (final) or 0x50 (non-final), then the supertype vector.
 			this.emitByte(subtype.final ? 0x4f : 0x50)
 			this.emitLengthPrefixedUintArray(subtype.supertypeIndexes)
-		} else if (!subtype.final) {
+		} else if (subtype.final === false) {
 			// Non-final subtype without supertypes must use 0x50 with an empty supertype vector.
 			// The bare comptype shorthand (form 3) is only valid for *final* subtypes without supertypes.
 			this.emitByte(0x50)
 			this.emitUint(0)
 		}
-		// else: final subtype without supertypes -> bare comptype shorthand (spec form 3).
+		// else: final subtype without supertypes (explicitly final, or `final` left
+		// unspecified, which defaults to final per the WASM text format) -> bare
+		// comptype shorthand (spec form 3). This is the canonical encoding for
+		// e.g. plain function types created without an explicit `final` flag.
 
 		this.emitCompositeType(subtype.type)
 	}
@@ -753,6 +756,55 @@ export class WasmEncoder {
 
 	emitValueType(valueType: ValueType) {
 		this.emitStorageType(valueType)
+	}
+
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Heap type emitter
+	//
+	// heaptype ::= ht : absheaptype | x : s33 (if x >= 0)
+	//
+	// An abstract heap type is encoded as a single byte in the range 0x69..0x74, while a
+	// concrete (named) type is encoded as a positive s33 (signed LEB128) type index.
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	emitHeapType(heapType: HeapType | string, context: InstructionContext) {
+		if (typeof heapType === 'string') {
+			const typeIndex = context.typesLookup.get(heapType)
+
+			if (typeIndex === undefined) {
+				throw new Error(`emitHeapType: Couldn't resolve type name '${heapType}'`)
+			}
+
+			// Concrete type index heaptype: positive s33 (signed LEB128).
+			this.emitInt(typeIndex)
+		} else {
+			// Abstract heap type: a single byte in the range 0x69..0x74.
+			this.emitByte(heapType)
+		}
+	}
+
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Block type emitter
+	//
+	// blocktype ::= 0x40 => ε | t : valtype => t | i : s33 => i (if i >= 0)
+	//
+	// A multi-result block type is encoded as a positive s33 (signed LEB128) type index that
+	// references a function type in the type section.
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	emitBlockType(returns: ValueType | string | undefined, context: InstructionContext) {
+		if (returns === undefined) {
+			this.emitByte(emptyType)
+		} else if (typeof returns === 'string') {
+			const typeIndex = context.typesLookup.get(returns)
+
+			if (typeIndex === undefined) {
+				throw new Error(`emitBlockType: Couldn't resolve type name '${returns}'`)
+			}
+
+			// Multi-result block type: positive s33 (signed LEB128) type index.
+			this.emitInt(typeIndex)
+		} else {
+			this.emitValueType(returns)
+		}
 	}
 
 	emitStorageType(type: StorageType) {

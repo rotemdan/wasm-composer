@@ -32,12 +32,8 @@ export const Op = {
 			opcodeName: 'if',
 			args: [blockName, options.returns, body],
 
-			immediatesEmitter: (encoder) => {
-				if (options.returns !== undefined) {
-					encoder.emitValueType(options.returns)
-				} else {
-					encoder.emitByte(emptyType)
-				}
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitBlockType(options.returns, context)
 			},
 
 			blockName,
@@ -131,12 +127,8 @@ export const Op = {
 			opcodeName: 'try',
 			args: [blockName, options.returns, body],
 
-			immediatesEmitter: (encoder) => {
-				if (options.returns !== undefined) {
-					encoder.emitValueType(options.returns)
-				} else {
-					encoder.emitByte(emptyType)
-				}
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitBlockType(options.returns, context)
 			},
 
 			blockName,
@@ -186,11 +178,7 @@ export const Op = {
 			args: [blockName, options, body],
 
 			immediatesEmitter: (encoder, context) => {
-				if (options.returns !== undefined) {
-					encoder.emitValueType(options.returns)
-				} else {
-					encoder.emitByte(emptyType)
-				}
+				encoder.emitBlockType(options.returns, context)
 
 				const handlers = options.handlers
 
@@ -354,12 +342,12 @@ export const Op = {
 	// Reference instructions
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	ref: {
-		null: (heapType: HeapType): Instruction => ({
+		null: (heapType: HeapType | string): Instruction => ({
 			opcodeName: 'ref.null',
 			args: [heapType],
 
-			immediatesEmitter: (encoder) => {
-				encoder.emitByte(heapType)
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitHeapType(heapType, context)
 			}
 		}),
 		is_null: createSimpleInstruction('ref.is_null'),
@@ -380,20 +368,20 @@ export const Op = {
 		eq: createSimpleInstruction('ref.eq'),
 		as_non_null: createSimpleInstruction('ref.as_non_null'),
 
-		test: (heapTypeId: HeapType, nullable: boolean): Instruction => ({
+		test: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
 			opcodeName: nullable ? 'ref.test_nullable' : 'ref.test',
 			args: [heapTypeId, nullable],
 
-			immediatesEmitter: (encoder) => {
-				encoder.emitByte(heapTypeId)
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitHeapType(heapTypeId, context)
 			}
 		}),
-		cast: (heapTypeId: HeapType, nullable: boolean): Instruction => ({
+		cast: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
 			opcodeName: nullable ? 'ref.cast_nullable' : 'ref.cast',
 			args: [heapTypeId, nullable],
 
-			immediatesEmitter: (encoder) => {
-				encoder.emitByte(heapTypeId)
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitHeapType(heapTypeId, context)
 			}
 		}),
 
@@ -1481,12 +1469,8 @@ function createBlockInstruction(opcodeName: 'block' | 'loop') {
 			opcodeName: opcodeName,
 			args: [options.name, options.returns, body],
 
-			immediatesEmitter: (encoder) => {
-				if (options.returns !== undefined) {
-					encoder.emitValueType(options.returns)
-				} else {
-					encoder.emitByte(emptyType)
-				}
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitBlockType(options.returns, context)
 			},
 
 			blockName: options.name,
@@ -1595,7 +1579,7 @@ function createMemoryReadWriteInstructionWithLane(opcodeName: OpcodeName) {
 }
 
 function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_cast_fail') {
-	return (targetBlockName: string, type1: HeapType, type2: HeapType, branchOnType1Null = false, branchOnType2Null = false): Instruction => ({
+	return (targetBlockName: string, type1: HeapType | string, type2: HeapType | string, branchOnType1Null = false, branchOnType2Null = false): Instruction => ({
 		opcodeName,
 		args: [targetBlockName, type1, type2, branchOnType1Null, branchOnType2Null],
 
@@ -1610,8 +1594,8 @@ function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_cast_fa
 
 			encoder.emitByte(flags)
 			encoder.emitUint(blockIndex)
-			encoder.emitByte(type1)
-			encoder.emitByte(type2)
+			encoder.emitHeapType(type1, context)
+			encoder.emitHeapType(type2, context)
 		}
 	})
 }
@@ -1641,15 +1625,15 @@ let anonymousBlockCounter = 0
 ////////////////////////////////////////////////////////////////////////////////////////////////
 export interface BlockOptions {
 	name: string
-	returns?: ValueType
+	returns?: ValueType | string
 }
 
 export interface IfOptions {
-	returns?: ValueType
+	returns?: ValueType | string
 }
 
 export interface TryOptions {
-	returns?: ValueType
+	returns?: ValueType | string
 }
 
 export type TryHandlerKind = 'catch' | 'catch_all' | 'catch_ref'
@@ -1670,7 +1654,7 @@ export interface CatchAllTryHandler extends TryHandlerBase {
 export type TryHandler = TaggedTryHandler | CatchAllTryHandler
 
 export interface TryTableOptions {
-	returns?: ValueType
+	returns?: ValueType | string
 	handlers: TryHandler[]
 }
 
