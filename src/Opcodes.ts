@@ -1,14 +1,22 @@
-// Opcodes and their names were extracted from the latest Chromium source code:
-///
-// https://chromium.googlesource.com/v8/v8/+/refs/heads/main/src/wasm/wasm-opcodes.h
-// or
-// https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h
+// Opcodes and their WAT mnemonic names, extracted from Chromium's
+// src/wasm/wasm-opcodes.h (August 2026 snapshot, refs/heads/main):
 //
-// Extraction:
+//   https://chromium.googlesource.com/v8/v8/+/refs/heads/main/src/wasm/wasm-opcodes.h
+//   https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h
 //
-// RegExp: V\(([^,]*), ([^,]*), ([^,]*), ([^\)]*)\).*
-// Replace: $4: $2
-// Clean up rest manually
+// Mnemonic spellings follow the real WASM text format (suffix form), e.g.
+// `i16x8.extmul_low_i8x16_s`, `f32x4.demote_f64x2_zero`, `f32.min`,
+// `i32x4.relaxed_trunc_f32x4_s`, `i16x8.relaxed_q15mulr_s`, `f32x4.qfma`.
+//
+// Organization: the spec-aligned WASM 3.0 core opcodes are listed first and are
+// the primary, supported set. Experimental / proposal opcodes (the stringref
+// proposal, relaxed SIMD, and Float16 SIMD) are kept at the end of this object,
+// clearly separated from the core set, and are NOT part of the WASM 3.0 core.
+//
+// Extraction (Chromium V(Name, 0xHEX, sig, "wat name")):
+//   RegExp: V\(([^,]*), ([^,]*), ([^,]*), ([^\)]*)\).*
+//   Replace: $4: $2
+//   Clean up rest manually
 
 export const wasmOpcodes = {
 	// Statements
@@ -33,7 +41,6 @@ export const wasmOpcodes = {
 	'catch_all': 0x19,
 	'br_on_null': 0xd5,
 	'br_on_non_null': 0xd6,
-	'nop_for_testing': 0x16,
 
 	// Constants, locals, globals, and calls
 	'call': 0x10,
@@ -230,41 +237,6 @@ export const wasmOpcodes = {
 
 	// Reference equality
 	'ref.eq': 0xd3,
-
-	// For compatibility with Asm.js.
-	// These opcodes are not spec'ed (or visible) externally; the idea is,
-	// to use unused ranges for internal purposes.
-	'f64.acos': 0xdc,
-	'f64.asin': 0xdd,
-	'f64.atan': 0xde,
-	'f64.cos': 0xdf,
-	'f64.sin': 0xe0,
-	'f64.tan': 0xe1,
-	'f64.exp': 0xe2,
-	'f64.log': 0xe3,
-	'f64.atan2': 0xe4,
-	'f64.pow': 0xe5,
-	'f64.mod': 0xe6,
-	'i32.asmjs_div_s': 0xe7,
-	'i32.asmjs_div_u': 0xe8,
-	'i32.asmjs_rem_s': 0xe9,
-	'i32.asmjs_rem_u': 0xea,
-	'i32.asmjs_load8_s': 0xeb,
-	'i32.asmjs_load8_u': 0xec,
-	'i32.asmjs_load16_s': 0xed,
-	'i32.asmjs_load16_u': 0xee,
-	'i32.asmjs_load32': 0xef,
-	'f32.asmjs_load': 0xf0,
-	'f64.asmjs_load': 0xf1,
-	'i32.asmjs_store8': 0xf2,
-	'i32.asmjs_store16': 0xf3,
-	'i32.asmjs_store': 0xf4,
-	'f32.asmjs_store': 0xf5,
-	'f64.asmjs_store': 0xf6,
-	'i32.asmjs_convert_f32_s': 0xf7,
-	'i32.asmjs_convert_f32_u': 0xf8,
-	'i32.asmjs_convert_f64_s': 0xf9,
-	'i32.asmjs_convert_f64_u': 0xfa,
 
 	// SIMD
 	'v128.load': 0xfd00,
@@ -490,61 +462,6 @@ export const wasmOpcodes = {
 	'f64x2.convert_low_i32x4_s': 0xfdfe,
 	'f64x2.convert_low_i32x4_u': 0xfdff,
 
-	// Relaxed SIMD
-	'i8x16.relaxed_swizzle': 0xfd100,
-	'i32x4.relaxed_trunc_f32x4_s': 0xfd101,
-	'i32x4.relaxed_trunc_f32x4_u': 0xfd102,
-	'i32x4.relaxed_trunc_f64x2_s_zero': 0xfd103,
-	'i32x4.relaxed_trunc_f64x2_u_zero': 0xfd104,
-	'f32x4.qfma': 0xfd105,
-	'f32x4.qfms': 0xfd106,
-	'f64x2.qfma': 0xfd107,
-	'f64x2.qfms': 0xfd108,
-	'i8x16.relaxed_laneselect': 0xfd109,
-	'i16x8.relaxed_laneselect': 0xfd10a,
-	'i32x4.relaxed_laneselect': 0xfd10b,
-	'i64x2.relaxed_laneselect': 0xfd10c,
-	'f32x4.relaxed_min': 0xfd10d,
-	'f32x4.relaxed_max': 0xfd10e,
-	'f64x2.relaxed_min': 0xfd10f,
-	'f64x2.relaxed_max': 0xfd110,
-	'i16x8.relaxed_q15mulr_s': 0xfd111,
-	'i16x8.dot_i8x16_i7x16_s': 0xfd112,
-	'i32x4.dot_i8x16_i7x16_add_s': 0xfd113,
-
-	// Float16 SIMD
-	'f16x8.splat': 0xfd120,
-	'f16x8.abs': 0xfd130,
-	'f16x8.neg': 0xfd131,
-	'f16x8.sqrt': 0xfd132,
-	'f16x8.ceil': 0xfd133,
-	'f16x8.floor': 0xfd134,
-	'f16x8.trunc': 0xfd135,
-	'f16x8.nearest': 0xfd136,
-	'f16x8.eq': 0xfd137,
-	'f16x8.ne': 0xfd138,
-	'f16x8.lt': 0xfd139,
-	'f16x8.gt': 0xfd13a,
-	'f16x8.le': 0xfd13b,
-	'f16x8.ge': 0xfd13c,
-	'f16x8.add': 0xfd13d,
-	'f16x8.sub': 0xfd13e,
-	'f16x8.mul': 0xfd13f,
-	'f16x8.div': 0xfd140,
-	'f16x8.min': 0xfd141,
-	'f16x8.max': 0xfd142,
-	'f16x8.pmin': 0xfd143,
-	'f16x8.pmax': 0xfd144,
-	'i16x8.trunc_sat_f16x8_s': 0xfd145,
-	'i16x8.trunc_sat_f16x8_u': 0xfd146,
-	'f16x8.convert_i16x8_s': 0xfd147,
-	'f16x8.convert_i16x8_u': 0xfd148,
-	'f16x8.demote_f32x4_zero': 0xfd149,
-	'f16x8.demote_f64x2_zero': 0xfd14a,
-	'f32x4.promote_low_f16x8': 0xfd14b,
-	'f16x8.madd': 0xfd14e,
-	'f16x8.nmadd': 0xfd14f,
-
 	// SIMD: extract and replace lane
 	'i8x16.extract_lane_s': 0xfd15,
 	'i8x16.extract_lane_u': 0xfd16,
@@ -697,7 +614,6 @@ export const wasmOpcodes = {
 	'ref.i31': 0xfb1c,
 	'i31.get_s': 0xfb1d,
 	'i31.get_u': 0xfb1e,
-	'ref.cast_nop': 0xfb4c,
 
 	// String references proposal:
 	'string.new_utf8': 0xfb80,
@@ -744,6 +660,69 @@ export const wasmOpcodes = {
 	'string.encode_lossy_utf8_array': 0xfbb6,
 	'string.encode_wtf8_array': 0xfbb7,
 	'string.new_utf8_array_try': 0xfbb8,
+
+	// =====================================================================
+	// Experimental / proposal opcodes — NOT part of the official WASM 3.0
+	// core spec. Kept for completeness but clearly separated from the
+	// spec-aligned instructions above, which are the primary, supported set.
+	// Source of truth: docs/chromium-reference/wasm-opcodes.h (Aug 2026),
+	// FOREACH_RELAXED_SIMD_OPCODE and the stringref proposal.
+	// =====================================================================
+
+	// Relaxed SIMD (proposal — not in WASM 3.0 core)
+	'i8x16.relaxed_swizzle': 0xfd100,
+	'i32x4.relaxed_trunc_f32x4_s': 0xfd101,
+	'i32x4.relaxed_trunc_f32x4_u': 0xfd102,
+	'i32x4.relaxed_trunc_f64x2_s_zero': 0xfd103,
+	'i32x4.relaxed_trunc_f64x2_u_zero': 0xfd104,
+	'f32x4.qfma': 0xfd105,
+	'f32x4.qfms': 0xfd106,
+	'f64x2.qfma': 0xfd107,
+	'f64x2.qfms': 0xfd108,
+	'i8x16.relaxed_laneselect': 0xfd109,
+	'i16x8.relaxed_laneselect': 0xfd10a,
+	'i32x4.relaxed_laneselect': 0xfd10b,
+	'i64x2.relaxed_laneselect': 0xfd10c,
+	'f32x4.relaxed_min': 0xfd10d,
+	'f32x4.relaxed_max': 0xfd10e,
+	'f64x2.relaxed_min': 0xfd10f,
+	'f64x2.relaxed_max': 0xfd110,
+	'i16x8.relaxed_q15mulr_s': 0xfd111,
+	'i16x8.dot_i8x16_i7x16_s': 0xfd112,
+	'i32x4.dot_i8x16_i7x16_add_s': 0xfd113,
+
+	// Float16 SIMD (proposal — not in WASM 3.0 core)
+	'f16x8.splat': 0xfd120,
+	'f16x8.abs': 0xfd130,
+	'f16x8.neg': 0xfd131,
+	'f16x8.sqrt': 0xfd132,
+	'f16x8.ceil': 0xfd133,
+	'f16x8.floor': 0xfd134,
+	'f16x8.trunc': 0xfd135,
+	'f16x8.nearest': 0xfd136,
+	'f16x8.eq': 0xfd137,
+	'f16x8.ne': 0xfd138,
+	'f16x8.lt': 0xfd139,
+	'f16x8.gt': 0xfd13a,
+	'f16x8.le': 0xfd13b,
+	'f16x8.ge': 0xfd13c,
+	'f16x8.add': 0xfd13d,
+	'f16x8.sub': 0xfd13e,
+	'f16x8.mul': 0xfd13f,
+	'f16x8.div': 0xfd140,
+	'f16x8.min': 0xfd141,
+	'f16x8.max': 0xfd142,
+	'f16x8.pmin': 0xfd143,
+	'f16x8.pmax': 0xfd144,
+	'i16x8.trunc_sat_f16x8_s': 0xfd145,
+	'i16x8.trunc_sat_f16x8_u': 0xfd146,
+	'f16x8.convert_i16x8_s': 0xfd147,
+	'f16x8.convert_i16x8_u': 0xfd148,
+	'f16x8.demote_f32x4_zero': 0xfd149,
+	'f16x8.demote_f64x2_zero': 0xfd14a,
+	'f32x4.promote_low_f16x8': 0xfd14b,
+	'f16x8.madd': 0xfd14e,
+	'f16x8.nmadd': 0xfd14f,
 }
 
 export type OpcodeName = keyof typeof wasmOpcodes

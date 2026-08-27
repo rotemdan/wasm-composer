@@ -2,7 +2,7 @@
 
 A lightweight, pure TypeScript library that efficiently encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`). Includes composable, function-based instruction wrappers, allowing WebAssembly modules to be dynamically specified, encoded, and executed at runtime, with minimal overhead.
 
-* Implements the full **[WebAssembly 2.0 binary format](https://webassembly.github.io/spec/core/binary/index.html)** specification
+* Implements the full **[WebAssembly 3.0 binary format](https://webassembly.github.io/spec/core/binary/index.html)** specification
 * Supports **all Phase 5, and some phase 4 extensions**, including bulk memory operations, garbage collection, multiple memories, multi-value, mutable globals, reference types, relaxed SIMD, typed function references, tail calls and atomics
 * Supports nearly **all WebAssembly instructions**, up to the latest, experimental ones. Opcode lookup table is extracted [directly from the V8 source code](https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h) and continuously updated
 * Includes **composable, function-based instruction wrappers**, with a syntax that directly reflects the underlying WebAssembly program structure, and attempts to simplify over the more LISP-styled WAT syntax
@@ -11,15 +11,15 @@ A lightweight, pure TypeScript library that efficiently encodes a WebAssembly mo
 * **Optimized for speed**. Takes a few microseconds (1/1000 millisecond) to build and encode the minimal example below (by comparison, the instantiation time of the resulting binary is significantly longer)
 * No dependencies
 
-### Currently experimental
+### Version `0.5.0` Critical Update
 
-**This library has not been thoroughly tested!**
+**All** versions prior to `0.5.0` contained substantial issues with how the binary specification was interpreted, including a basic misinterpretation of how instruction codes should be encoded!
 
-* It's possible there are trivial errors in the code
-* It's possible that the encoding of some sections or instructions is incorrectly implemented, due to human errors or misunderstanding of the specification
-* It's possible that some implementation details, derived from the official specification, don't exactly match the expectation of actual WASM engines, especially for complex extensions, like garbage collection
+The new version, now with significant AI assisted corrections, and repeated automated validation against the official specification documents, has now hopefully addressed all of them, and also updated to support the full WebAssembly 3.0 specification.
 
-Please report any issue you encounter! Inspect the code if needed. That's the fastest way to get it stable and usable.
+There may still potentially be remaining issues, and an ongoing effort of creating comprehensive unit tests may help.
+
+The code will be repeatedly inspected and audited with newer AI models as they become available and more affordable. AI assistance is proving to be a major factor in making a project like this possible for a single developer who is not a WebAssembly expert.
 
 ## Installation
 
@@ -36,7 +36,6 @@ import { encodeWasmModule } from 'wasm-composer'
 
 const wasmBytes = encodeWasmModule(moduleDefinition)
 ```
-
 
 ## Minimal example
 

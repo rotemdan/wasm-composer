@@ -63,6 +63,171 @@ export const Op = {
 
 	end: createSimpleInstruction('end'),
 
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	// Exception handling instructions
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	throw: (tagName: string): Instruction => ({
+		opcodeName: 'throw',
+		args: [tagName],
+
+		immediatesEmitter: (encoder, context) => {
+			const tagIndex = context.tagsLookup.get(tagName)
+
+			if (tagIndex === undefined) {
+				throw new Error(`throw: Couldn't resolve tag name '${tagName}'`)
+			}
+
+			encoder.emitUint(tagIndex)
+		},
+	}),
+
+	rethrow: (targetBlockName: string): Instruction => ({
+		opcodeName: 'rethrow',
+		args: [targetBlockName],
+
+		immediatesEmitter: (encoder, context) => {
+			const blockIndex = context.blockStack.indexOf(targetBlockName)
+
+			if (blockIndex < 0) {
+				throw new Error(`rethrow: Couldn't resolve block name '${targetBlockName}'`)
+			}
+
+			encoder.emitUint(blockIndex)
+		},
+	}),
+
+	delegate: (targetBlockName: string): Instruction => ({
+		opcodeName: 'delegate',
+		args: [targetBlockName],
+
+		immediatesEmitter: (encoder, context) => {
+			const blockIndex = context.blockStack.indexOf(targetBlockName)
+
+			if (blockIndex < 0) {
+				throw new Error(`delegate: Couldn't resolve block name '${targetBlockName}'`)
+			}
+
+			encoder.emitUint(blockIndex)
+		},
+	}),
+
+	try: (optionsOrBody: TryOptions | Instruction[], body?: Instruction[]): BlockInstruction => {
+		let options: TryOptions
+
+		if (isArray(optionsOrBody)) {
+			options = {}
+			body = optionsOrBody
+		} else {
+			options = optionsOrBody
+		}
+
+		if (body == null) {
+			throw new Error(`A 'try' instruction must have a body`)
+		}
+
+		const blockName = `tryBlock_${anonymousBlockCounter++}`
+
+		return {
+			opcodeName: 'try',
+			args: [blockName, options.returns, body],
+
+			immediatesEmitter: (encoder) => {
+				if (options.returns !== undefined) {
+					encoder.emitValueType(options.returns)
+				} else {
+					encoder.emitByte(emptyType)
+				}
+			},
+
+			blockName,
+			bodyInstructions: body,
+		}
+	},
+
+	catch: (tagName: string, body: Instruction[]): BlockInstruction => {
+		const blockName = `catchBlock_${anonymousBlockCounter++}`
+
+		return {
+			opcodeName: 'catch',
+			args: [blockName, tagName, body],
+
+			immediatesEmitter: (encoder, context) => {
+				const tagIndex = context.tagsLookup.get(tagName)
+
+				if (tagIndex === undefined) {
+					throw new Error(`catch: Couldn't resolve tag name '${tagName}'`)
+				}
+
+				encoder.emitUint(tagIndex)
+			},
+
+			blockName,
+			bodyInstructions: body,
+		}
+	},
+
+	catch_all: (body: Instruction[]): BlockInstruction => {
+		const blockName = `catchAllBlock_${anonymousBlockCounter++}`
+
+		return {
+			opcodeName: 'catch_all',
+			args: [blockName, body],
+
+			blockName,
+			bodyInstructions: body,
+		}
+	},
+
+	try_table: (options: TryTableOptions, body: Instruction[]): BlockInstruction => {
+		const blockName = `tryTableBlock_${anonymousBlockCounter++}`
+
+		return {
+			opcodeName: 'try_table',
+			args: [blockName, options, body],
+
+			immediatesEmitter: (encoder, context) => {
+				if (options.returns !== undefined) {
+					encoder.emitValueType(options.returns)
+				} else {
+					encoder.emitByte(emptyType)
+				}
+
+				const handlers = options.handlers
+
+				encoder.emitUint(handlers.length)
+
+				for (const handler of handlers) {
+					if (handler.kind === 'catch_all') {
+						encoder.emitByte(0x00)
+					} else {
+						if (handler.kind === 'catch_ref') {
+							encoder.emitByte(0x01)
+						}
+
+						const tagIndex = context.tagsLookup.get(handler.tagName)
+
+						if (tagIndex === undefined) {
+							throw new Error(`try_table: Couldn't resolve tag name '${handler.tagName}'`)
+						}
+
+						encoder.emitUint(tagIndex)
+					}
+
+					const labelIndex = context.blockStack.indexOf(handler.labelName)
+
+					if (labelIndex < 0) {
+						throw new Error(`try_table: Couldn't resolve label name '${handler.labelName}'`)
+					}
+
+					encoder.emitUint(labelIndex)
+				}
+			},
+
+			blockName,
+			bodyInstructions: body,
+		}
+	},
+
 	br: createBranchInstruction('br'),
 	br_if: createBranchInstruction('br_if'),
 	br_table: (blockNames: string[], defaultBlockName: string): Instruction => ({
@@ -467,7 +632,7 @@ export const Op = {
 			args: [elementName],
 
 			immediatesEmitter: (encoder, context) => {
-				const elementIndex = context.tablesLookup.get(elementName)
+				const elementIndex = context.elementsLookup.get(elementName)
 
 				if (elementIndex === undefined) {
 					throw new Error(`elem.drop: Couldn't resolve element name '${elementName}'`)
@@ -516,7 +681,7 @@ export const Op = {
 					throw new Error(`memory.copy: Couldn't resolve memory 1 name '${memory1Name}'`)
 				}
 
-				const memory2Index = context.memoriesLookup.get(memory1Name)
+				const memory2Index = context.memoriesLookup.get(memory2Name)
 
 				if (memory2Index === undefined) {
 					throw new Error(`memory.copy: Couldn't resolve memory 2 name '${memory2Name}'`)
@@ -1060,6 +1225,7 @@ export const Op = {
 		// Relaxed SIMD
 		relaxed_laneselect: createSimpleInstruction('i16x8.relaxed_laneselect'),
 		dot_i8x16_i7x16_s: createSimpleInstruction('i16x8.dot_i8x16_i7x16_s'),
+		relaxed_q15mulr_s: createSimpleInstruction('i16x8.relaxed_q15mulr_s'),
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1069,7 +1235,7 @@ export const Op = {
 		extract_lane: (laneIndex: number) =>
 			createSimpleInstruction('i32x4.extract_lane', [laneIndex]),
 		replace_lane: (laneIndex: number) =>
-			createSimpleInstruction('i32x4.extract_lane', [laneIndex]),
+			createSimpleInstruction('i32x4.replace_lane', [laneIndex]),
 
 		splat: createSimpleInstruction('i32x4.splat'),
 
@@ -1133,7 +1299,7 @@ export const Op = {
 		extract_lane: (laneIndex: number) =>
 			createSimpleInstruction('i64x2.extract_lane', [laneIndex]),
 		replace_lane: (laneIndex: number) =>
-			createSimpleInstruction('i64x2.extract_lane', [laneIndex]),
+			createSimpleInstruction('i64x2.replace_lane', [laneIndex]),
 
 		splat: createSimpleInstruction('i64x2.splat'),
 
@@ -1176,7 +1342,7 @@ export const Op = {
 		extract_lane: (laneIndex: number) =>
 			createSimpleInstruction('f32x4.extract_lane', [laneIndex]),
 		replace_lane: (laneIndex: number) =>
-			createSimpleInstruction('f32x4.extract_lane', [laneIndex]),
+			createSimpleInstruction('f32x4.replace_lane', [laneIndex]),
 
 		eq: createSimpleInstruction('f32x4.eq'),
 		ne: createSimpleInstruction('f32x4.ne'),
@@ -1219,7 +1385,7 @@ export const Op = {
 		extract_lane: (laneIndex: number) =>
 			createSimpleInstruction('f64x2.extract_lane', [laneIndex]),
 		replace_lane: (laneIndex: number) =>
-			createSimpleInstruction('f64x2.extract_lane', [laneIndex]),
+			createSimpleInstruction('f64x2.replace_lane', [laneIndex]),
 
 		eq: createSimpleInstruction('f64x2.eq'),
 		ne: createSimpleInstruction('f64x2.ne'),
@@ -1340,7 +1506,7 @@ function createBranchInstruction(opcodeName: OpcodeName) {
 		immediatesEmitter: (encoder, context) => {
 			const blockIndex = context.blockStack.indexOf(targetBlockName)
 
-			if (blockIndex === undefined) {
+			if (blockIndex < 0) {
 				throw new Error(`${opcodeName}: Couldn't resolve block name '${targetBlockName}'`)
 			}
 
@@ -1436,7 +1602,7 @@ function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_cast_fa
 		immediatesEmitter: (encoder, context) => {
 			const blockIndex = context.blockStack.indexOf(targetBlockName)
 
-			if (blockIndex === undefined) {
+			if (blockIndex < 0) {
 				throw new Error(`${opcodeName}: Couldn't resolve block name '${targetBlockName}'`)
 			}
 
@@ -1480,6 +1646,32 @@ export interface BlockOptions {
 
 export interface IfOptions {
 	returns?: ValueType
+}
+
+export interface TryOptions {
+	returns?: ValueType
+}
+
+export type TryHandlerKind = 'catch' | 'catch_all' | 'catch_ref'
+
+export interface TryHandlerBase {
+	labelName: string
+}
+
+export interface TaggedTryHandler extends TryHandlerBase {
+	kind: 'catch' | 'catch_ref'
+	tagName: string
+}
+
+export interface CatchAllTryHandler extends TryHandlerBase {
+	kind: 'catch_all'
+}
+
+export type TryHandler = TaggedTryHandler | CatchAllTryHandler
+
+export interface TryTableOptions {
+	returns?: ValueType
+	handlers: TryHandler[]
 }
 
 

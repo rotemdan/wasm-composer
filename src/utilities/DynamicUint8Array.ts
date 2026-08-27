@@ -5,31 +5,33 @@ export function createDynamicUint8Array(initialCapacity?: number) {
 }
 
 export class DynamicUint8Array implements DynamicNumericArray {
-	private elements: Uint8Array
-	length = 0
+	private bytes: Uint8Array
+	private byteCount = 0
 
 	constructor(initialCapacity = 4) {
-		this.elements = new Uint8Array(initialCapacity)
+		this.bytes = new Uint8Array(initialCapacity)
 	}
 
 	appendValue(newValue: number) {
-		if (this.length >= this.capacity) {
-			this.ensureCapacity(this.length + 1)
+		if (this.byteCount >= this.capacity) {
+			this.ensureCapacity(this.byteCount + 1)
 		}
 
-		this.elements[this.length++] = newValue
+		this.bytes[this.byteCount] = newValue
+
+		this.byteCount += 1
 	}
 
 	appendValues(newValues: ArrayLike<number>) {
 		const addedCount = newValues.length
-		const requiredCapacity = this.length + addedCount
+		const requiredCapacity = this.byteCount + addedCount
 
 		if (requiredCapacity > this.capacity) {
 			this.ensureCapacity(requiredCapacity)
 		}
 
-		this.elements.set(newValues, this.length)
-		this.length += addedCount
+		this.bytes.set(newValues, this.byteCount)
+		this.byteCount += addedCount
 	}
 
 	ensureCapacity(requiredCapacity: number) {
@@ -39,19 +41,23 @@ export class DynamicUint8Array implements DynamicNumericArray {
 			const newElements = new Uint8Array(newCapacity)
 			newElements.set(this.values)
 
-			this.elements = newElements
+			this.bytes = newElements
 		}
 	}
 
 	clear() {
-		this.length = 0
+		this.byteCount = 0
+	}
+
+	get length() {
+		return this.byteCount
 	}
 
 	get values() {
-		return this.elements.subarray(0, this.length)
+		return this.bytes.subarray(0, this.byteCount)
 	}
 
 	private get capacity() {
-		return this.elements.length
+		return this.bytes.length
 	}
 }

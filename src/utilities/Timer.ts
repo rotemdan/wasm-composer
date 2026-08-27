@@ -1,95 +1,99 @@
-import { roundToDigits } from "./Utilities.js"
-
-declare const chrome: any
-declare const process: any
+import { logToStderr } from './Utilities.js'
 
 export class Timer {
-	startTime = 0
+	private readonly logger: TimerLogger
 
-	constructor() {
+	private startTime = 0
+
+	constructor(logger?: TimerLogger) {
+		if (logger) {
+			this.logger = logger
+		} else {
+			this.logger = logToStderr
+		}
+
 		this.restart()
 	}
 
-	restart() {
+	// Resets the timer to the current time.
+	restart(): void {
 		this.startTime = Timer.currentTime
 	}
 
+	// Elapsed time in milliseconds (monotonic where supported).
 	get elapsedTime(): number {
-		// Elapsed time (milliseconds)
 		return Timer.currentTime - this.startTime
 	}
 
+	// Elapsed time in seconds.
 	get elapsedTimeSeconds(): number {
-		// Elapsed time (seconds)
 		return this.elapsedTime / 1000
 	}
 
+	// Returns elapsed ms and restarts the timer.
 	getElapsedTimeAndRestart(): number {
-		const elapsedTime = this.elapsedTime
+		const elapsed = this.elapsedTime
 		this.restart()
 
-		return elapsedTime
+		return elapsed
 	}
 
+	// Logs elapsed time (in ms) and restarts the timer.
 	logAndRestart(title: string, timePrecision = 3): number {
-		const elapsedTime = this.elapsedTime
-
-		//
-		const message = `${title}: ${roundToDigits(elapsedTime, timePrecision)}ms`
-
-		console.log(message)
-		//
-
+		const elapsedMs = this.elapsedTime
+		this.logger(`${title}: ${roundToDigits(elapsedMs, timePrecision)}ms`)
 		this.restart()
 
-		return elapsedTime
+		return elapsedMs
 	}
 
+	// Current high-resolution timestamp in milliseconds since Unix epoch.
 	static get currentTime(): number {
-		if (!this.timestampFunc) {
-			this.createGlobalTimestampFunction()
-		}
-
 		return this.timestampFunc()
 	}
 
+	// Current timestamp in microseconds (integer).
 	static get microsecondTimestamp(): number {
 		return Math.floor(Timer.currentTime * 1000)
 	}
 
-	private static createGlobalTimestampFunction() {
-		if (typeof process === 'object' && typeof process.hrtime === 'function') {
-			let baseTimestamp = 0
+	// Private Static Clock Setup
+	private static timestampFunc: () => number = Timer.createTimestampFunction()
 
-			this.timestampFunc = () => {
-				const nodeTimeStamp = process.hrtime()
-				const millisecondTime = (nodeTimeStamp[0] * 1000) + (nodeTimeStamp[1] / 1000000)
+	private static createTimestampFunction(): () => number {
+		const g = globalThis as any
 
-				return baseTimestamp + millisecondTime
-			}
+		// 1. Modern standard: performance.now() (Browsers & Node 16+)
+		if (typeof g.performance === 'object' && typeof g.performance.now === 'function') {
+			const timeOrigin =
+				g.performance.timeOrigin ?? (Date.now() - g.performance.now())
 
-			baseTimestamp = Date.now() - this.timestampFunc()
+			return () => timeOrigin + g.performance.now()
 		}
-		else if (typeof chrome === 'object' && chrome.Interval) {
-			const baseTimestamp = Date.now()
 
-			const chromeIntervalObject = new chrome.Interval()
-			chromeIntervalObject.start()
+		// 2. Node.js high resolution timer (BigInt variant, Node 10.4+)
+		if (typeof g.process === 'object' && typeof g.process.hrtime === 'function') {
+			const startNs = g.process.hrtime.bigint()
 
-			this.timestampFunc = () => baseTimestamp + chromeIntervalObject.microseconds() / 1000
-		}
-		else if (typeof performance === 'object' && performance.now) {
-			const baseTimestamp = Date.now() - performance.now()
+			const epochBaseMs = Date.now() - (Number(startNs) / 1e6)
 
-			this.timestampFunc = () => baseTimestamp + performance.now()
+			return () =>
+				epochBaseMs + Number(g.process.hrtime.bigint()) / 1e6
 		}
-		else if (Date.now) {
-			this.timestampFunc = () => Date.now()
+
+		// 3. Last-resort fallback (non-monotonic)
+		if (typeof Date.now === 'function') {
+			return () => Date.now()
 		}
-		else {
-			this.timestampFunc = () => (new Date()).getTime()
-		}
+
+		return () => new Date().getTime()
 	}
-
-	private static timestampFunc: () => number
 }
+
+export function roundToDigits(value: number, digits: number): number {
+	const factor = 10 ** digits
+
+	return Math.round(value * factor) / factor
+}
+
+type TimerLogger = (msg: string) => void

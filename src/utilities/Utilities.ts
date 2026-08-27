@@ -1,4 +1,13 @@
-export function encodeUTF8(str: string) {
+export function writeToStderr(message: any) {
+	process.stderr.write(message)
+}
+
+export function logToStderr(message: any) {
+	writeToStderr(message)
+	writeToStderr('\n')
+}
+
+export function encodeUtf8(str: string) {
 	const textEncoder = new TextEncoder()
 
 	return textEncoder.encode(str)

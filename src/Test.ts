@@ -113,7 +113,7 @@ async function test() {
 
 	timer.logAndRestart('Build WASM')
 
-	const wasmModuleInstance = await WebAssembly.instantiate(wasmBytes!)
+	const wasmModuleInstance = await WebAssembly.instantiate(wasmBytes! as BufferSource)
 
 	const moduleExports = wasmModuleInstance.instance.exports
 
