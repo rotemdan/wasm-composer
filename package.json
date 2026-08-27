@@ -7,6 +7,7 @@
 	"keywords": [
 		"webassembly",
 		"wasm",
+		"wasm-3.0",
 		"webassembly-encoder",
 		"webassembly-binary-format"
 	],
@@ -29,6 +30,8 @@
 	"scripts": {
 		"test": "vitest --exclude='node_modules/**' --exclude='dist/**'",
 		"test-manual": "node dist/tests/manual/Test.js"
+	},
+	"dependencies": {
 	},
 	"devDependencies": {
 		"@types/node": "^26.4.0",
