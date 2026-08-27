@@ -27,7 +27,8 @@
 		"README.md"
 	],
 	"scripts": {
-		"test": "node dist/tests/manual/Test.js"
+		"test": "vitest --exclude='node_modules/**' --exclude='dist/**'",
+		"test-manual": "node dist/tests/manual/Test.js"
 	},
 	"devDependencies": {
 		"@types/node": "^26.4.0",
