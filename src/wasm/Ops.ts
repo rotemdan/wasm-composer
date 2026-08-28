@@ -440,7 +440,7 @@ export const Op = {
 			rmw_xchg: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.xchg'),
 			rmw_cmpxchg: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.cmpxchg'),
 		}
-},
+	},
 
 	array: {
 		new: createGCTypeInstruction('array.new'),
