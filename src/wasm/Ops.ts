@@ -465,6 +465,27 @@ export const Op = {
 		get_s: createGCTypeInstruction('array.get_s'),
 		get_u: createGCTypeInstruction('array.get_u'),
 		set: createGCTypeInstruction('array.set'),
+		copy: (destTypeName: string, sourceTypeName: string): Instruction => ({
+			opcodeName: 'array.copy',
+			args: [destTypeName, sourceTypeName],
+
+			immediatesEmitter: (encoder, context) => {
+				const destTypeIndex = context.typesLookup.get(destTypeName)
+
+				if (destTypeIndex === undefined) {
+					throw new Error(`array.copy: Couldn't resolve destination type name '${destTypeName}'`)
+				}
+
+				const sourceTypeIndex = context.typesLookup.get(sourceTypeName)
+
+				if (sourceTypeIndex === undefined) {
+					throw new Error(`array.copy: Couldn't resolve source type name '${sourceTypeName}'`)
+				}
+
+				encoder.emitUint(destTypeIndex)
+				encoder.emitUint(sourceTypeIndex)
+			}
+		}),
 		len: createSimpleInstruction('array.len'),
 		fill: createGCTypeInstruction('array.fill'),
 		init_data: (typeName: string, dataEntryName: string): Instruction => ({
