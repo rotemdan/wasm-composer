@@ -197,7 +197,7 @@ export const Op = {
 
 				for (const handler of handlers) {
 					if (handler.kind === 'catch_all') {
-						encoder.emitByte(0x00)
+						encoder.emitByte(0x02)
 					} else {
 						if (handler.kind === 'catch_ref') {
 							encoder.emitByte(0x01)
@@ -365,6 +365,20 @@ export const Op = {
 			encoder.emitUint(tableIndex)
 		}
 	}),
+	return_call_ref: (typeName: string): Instruction => ({
+		opcodeName: 'return_call_ref',
+		args: [typeName],
+
+		immediatesEmitter: (encoder, context) => {
+			const typeIndex = context.typesLookup.get(typeName)
+
+			if (typeIndex === undefined) {
+				throw new Error(`return_call_ref: Couldn't resolve type name '${typeName}'`)
+			}
+
+			encoder.emitUint(typeIndex)
+		}
+	}),
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// Reference instructions
@@ -417,9 +431,30 @@ export const Op = {
 
 		i31_shared: createSimpleInstruction('ref.i31_shared'),
 		get_desc: createSimpleInstruction('ref.get_desc'),
-		cast_desc_eq: createSimpleInstruction('ref.cast_desc_eq'),
-		cast_desc_eq_nullable: createSimpleInstruction('ref.cast_desc_eq_nullable'),
-		cast_nop: createSimpleInstruction('ref.cast_nop')
+		cast_desc_eq: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
+			opcodeName: nullable ? 'ref.cast_desc_eq_nullable' : 'ref.cast_desc_eq',
+			args: [heapTypeId, nullable],
+
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitHeapType(heapTypeId, context)
+			}
+		}),
+		cast_desc_eq_nullable: (heapTypeId: HeapType | string): Instruction => ({
+			opcodeName: 'ref.cast_desc_eq_nullable',
+			args: [heapTypeId, true],
+
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitHeapType(heapTypeId, context)
+			}
+		}),
+		cast_nop: (heapTypeId: HeapType | string): Instruction => ({
+			opcodeName: 'ref.cast_nop',
+			args: [heapTypeId],
+
+			immediatesEmitter: (encoder, context) => {
+				encoder.emitHeapType(heapTypeId, context)
+			}
+		}),
 	},
 
 	struct: {
@@ -482,7 +517,7 @@ export const Op = {
 				const dataEntryIndex = context.dataLookup.get(dataEntryName)
 
 				if (dataEntryIndex === undefined) {
-					throw new Error(`array.new_data: Couldn't resolve data entry name '${typeName}'`)
+					throw new Error(`array.new_data: Couldn't resolve data entry name '${dataEntryName}'`)
 				}
 
 				encoder.emitUint(typeIndex)
@@ -503,7 +538,7 @@ export const Op = {
 				const elementIndex = context.elementsLookup.get(elementName)
 
 				if (elementIndex === undefined) {
-					throw new Error(`array.new_elem: Couldn't resolve element entry name '${typeName}'`)
+					throw new Error(`array.new_elem: Couldn't resolve element entry name '${elementName}'`)
 				}
 
 				encoder.emitUint(typeIndex)
@@ -552,7 +587,7 @@ export const Op = {
 				const dataEntryIndex = context.dataLookup.get(dataEntryName)
 
 				if (dataEntryIndex === undefined) {
-					throw new Error(`array.init_data: Couldn't resolve data entry name '${typeName}'`)
+					throw new Error(`array.init_data: Couldn't resolve data entry name '${dataEntryName}'`)
 				}
 
 				encoder.emitUint(typeIndex)
@@ -573,7 +608,7 @@ export const Op = {
 				const elementIndex = context.elementsLookup.get(elementName)
 
 				if (elementIndex === undefined) {
-					throw new Error(`array.init_elem: Couldn't resolve element entry name '${typeName}'`)
+					throw new Error(`array.init_elem: Couldn't resolve element entry name '${elementName}'`)
 				}
 
 				encoder.emitUint(typeIndex)
@@ -690,8 +725,11 @@ export const Op = {
 					throw new Error(`table.copy: Couldn't resolve target table name '${targetTableName}'`)
 				}
 
-				encoder.emitUint(sourceTableIndex)
+				// Binary layout is `table.copy x1 x2` where x1 is the destination table and
+				// x2 is the source table (consistent with `memory.copy`), so we emit the
+				// target (destination) index before the source index.
 				encoder.emitUint(targetTableIndex)
+				encoder.emitUint(sourceTableIndex)
 			}
 		}),
 		grow: createTableInstruction('table.grow'),

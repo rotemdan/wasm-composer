@@ -58,11 +58,45 @@ export class WasmEncoder {
 			elementsLookup: new Map(),
 			dataLookup: new Map(),
 			tagsLookup: new Map(),
-
 			localsLookup: new Map(),
+
 			blockStack: [],
 			tryBlockStack: [],
 		}
+
+		// Make imported symbols referenceable by name from instructions (e.g.
+		// `Op.global.get(importedName)`, `Op.memory.size(importedName)`, `Op.call(importedName)`,
+		// `Op.table.get(importedName)`). They occupy the leading indices of their kind's index
+		// space, so each kind is numbered from zero independently.
+		{
+			let functionImportIndex = 0
+			let tableImportIndex = 0
+			let memoryImportIndex = 0
+			let globalImportIndex = 0
+			let tagImportIndex = 0
+
+			for (const entry of importDefinitions) {
+				const description = entry.description
+
+				if (description.type === ImportKind.Function) {
+					globalInstructionContext.functionsLookup.set(entry.importName, functionImportIndex++)
+				} else if (description.type === ImportKind.Table) {
+					globalInstructionContext.tablesLookup.set(entry.importName, tableImportIndex++)
+				} else if (description.type === ImportKind.Memory) {
+					globalInstructionContext.memoriesLookup.set(entry.importName, memoryImportIndex++)
+				} else if (description.type === ImportKind.Global) {
+					globalInstructionContext.globalsLookup.set(entry.importName, globalImportIndex++)
+				} else if (description.type === ImportKind.Tag) {
+					globalInstructionContext.tagsLookup.set(entry.importName, tagImportIndex++)
+				}
+			}
+		}
+
+		// Make data segments referenceable by name (mirrors `elementsLookup` population above),
+		// so `memory.init` / `data.drop` can resolve a segment by its definition name.
+		dataDefinitions.forEach((entry, index) => {
+			globalInstructionContext.dataLookup.set(entry.name, index)
+		})
 
 		// Add functions, table entries, memories and globals that are marked as exported
 		// to an exports definition.
@@ -96,8 +130,10 @@ export class WasmEncoder {
 		})
 
 		const functionSignatures = functionDefinitions.map(entry => {
-			const paramTypes = Object.values(entry.params)
-			const returnTypes = Array.isArray(entry.returns) ? Object.values(entry.returns) : [entry.returns]
+			const paramTypes = Object.values(entry.params ?? {})
+			const returnTypes = entry.returns == null
+				? []
+				: (Array.isArray(entry.returns) ? Object.values(entry.returns) : [entry.returns])
 
 			return {
 				paramTypes,
@@ -567,7 +603,7 @@ export class WasmEncoder {
 
 			instructionContext.localsLookup = new Map()
 
-			const localNames = [...Object.keys(entry.params), ...(Object.keys(entry.locals ?? {}))]
+			const localNames = [...Object.keys(entry.params ?? {}), ...(Object.keys(entry.locals ?? {}))]
 
 			localNames.forEach((name, index) => {
 				instructionContext.localsLookup.set(name, index)
@@ -1258,8 +1294,8 @@ export interface WasmModuleDefinition {
 export interface FunctionDefinition {
 	name: string
 	export?: boolean
-	params: FunctionParams
-	returns: ValueType | ValueType[]
+	params?: FunctionParams
+	returns?: ValueType | ValueType[]
 	locals?: FunctionLocals
 	instructions: Instructions
 }
@@ -1589,8 +1625,9 @@ export interface InstructionContext {
 	elementsLookup: Map<string, number>
 	dataLookup: Map<string, number>
 	tagsLookup: Map<string, number>
-	blockStack: string[]
 	
+	blockStack: string[]
+
 	// Stack of *try* block names only (no `if`/`loop`/`block`/`else`/`catch`).
 	// `rethrow`/`delegate` reference an enclosing try by name, and their label must
 	// count try blocks (excluding the current one), so they resolve against this
