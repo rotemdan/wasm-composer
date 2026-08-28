@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { NumberType, Op, WasmModuleDefinition } from '../../exports/Exports.js'
-import { encodeAndInstntiateWasmModuleDefinition } from './Common.js'
+import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 
 test('Encodes a WASM module with a single "add" function and executes it correctly', async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
@@ -22,7 +22,7 @@ test('Encodes a WASM module with a single "add" function and executes it correct
 		]
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 
 	const add = moduleExports.add as Function
 
@@ -61,7 +61,7 @@ test('Encodes a WASM module with a single "isGreaterThan" function and executes 
 		]
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 
 	const isGreaterThan = moduleExports.isGreaterThan as Function
 
@@ -117,7 +117,7 @@ test('Encodes a WASM module with a single "add10_KTimes" function and executes i
 		]
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 
 	const add10_KTimes = moduleExports.add10_KTimes as Function
 

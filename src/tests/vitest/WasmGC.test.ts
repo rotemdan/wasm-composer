@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { NumberType, Op, WasmModuleDefinition, HeapType, ReferenceTypeKind } from '../../exports/Exports.js'
-import { encodeAndInstntiateWasmModuleDefinition } from './Common.js'
+import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 
 test('Encodes i31 references and round-trips a value through i31.new / i31.get_s', async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
@@ -19,7 +19,7 @@ test('Encodes i31 references and round-trips a value through i31.new / i31.get_s
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const i31RoundTrip = moduleExports.i31RoundTrip as Function
 
 	expect(i31RoundTrip(0)).toEqual(0)
@@ -66,7 +66,7 @@ test('WasmGC: Encodes a struct type, builds an instance with struct.new, and rea
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const sumPair = moduleExports.sumPair as Function
 
 	expect(sumPair(10, 20)).toEqual(30)
@@ -101,7 +101,7 @@ test('Encodes struct.new_default and reads a zero-initialized field', async () =
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const defaultPairFirstField = moduleExports.defaultPairFirstField as Function
 
 	expect(defaultPairFirstField()).toEqual(0)
@@ -137,7 +137,7 @@ test('Encodes an array type and reports its length with array.len', async () => 
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const arrayLength = moduleExports.arrayLength as Function
 
 	expect(arrayLength(5, 7)).toEqual(5)
@@ -175,7 +175,7 @@ test('Encodes an array type and reads an element with array.get', async () => {
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const arrayFirstElement = moduleExports.arrayFirstElement as Function
 
 	expect(arrayFirstElement(5, 7)).toEqual(7)
@@ -235,7 +235,7 @@ test('Encodes array.copy and copies an element between two arrays', async () => 
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const copyFirstElement = moduleExports.copyFirstElement as Function
 
 	expect(copyFirstElement(1)).toEqual(99)
@@ -258,7 +258,7 @@ test('Encodes ref.null with an abstract GC heap type and ref.is_null', async () 
 		],
 	}
 
-	const { moduleExports } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 	const nullIsNull = moduleExports.nullIsNull as Function
 
 	expect(nullIsNull()).toEqual(1)

@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { NumberType, Op, WasmModuleDefinition } from '../../exports/Exports.js'
-import { encodeAndInstntiateWasmModuleDefinition } from './Common.js'
+import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 
 test('Encodes a Memory64 module, round-trips a 64-bit memarg offset, and returns i64 from memory.size', async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
@@ -50,7 +50,7 @@ test('Encodes a Memory64 module, round-trips a 64-bit memarg offset, and returns
 		],
 	}
 
-	const { moduleExports, wasmBytes } = await encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition)
+	const { moduleExports, wasmBytes } = await encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition)
 
 	const storeAndLoad = moduleExports.storeAndLoad as Function
 	const memorySizeInPages = moduleExports.memorySizeInPages as Function

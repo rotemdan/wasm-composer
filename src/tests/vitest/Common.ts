@@ -1,6 +1,6 @@
 import { encodeWasmModule, WasmModuleDefinition } from '../../exports/Exports.js'
 
-export async function encodeAndInstntiateWasmModuleDefinition(wasmModuleDefinition: WasmModuleDefinition) {
+export async function encodeAndInstantiateWasmModuleDefinition(wasmModuleDefinition: WasmModuleDefinition) {
 	const wasmBytes = encodeWasmModule(wasmModuleDefinition)
 
 	const wasmModuleInstance = await WebAssembly.instantiate(wasmBytes)
