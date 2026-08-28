@@ -3,22 +3,24 @@
 A lightweight, pure TypeScript library that efficiently encodes a WebAssembly module definition to the standard WebAssembly binary format (`.wasm`). Includes composable, function-based instruction wrappers, allowing WebAssembly modules to be dynamically specified, encoded, and executed at runtime, with minimal overhead.
 
 * Implements the full **[WebAssembly 3.0 binary format specification](https://webassembly.github.io/spec/core/binary/index.html)**
-* Supports nearly **all WebAssembly instructions**, up to the latest, experimental ones. Opcode lookup table is extracted [directly from the V8 source code](https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h) and updated periodically
+* Supports virtually **all WebAssembly instructions**, up to the latest, experimental ones. Various proposals, going beyond WASM 3.0, are supported. Opcode lookup table is extracted [directly from the V8 source code](https://github.com/v8/v8/blob/main/src/wasm/wasm-opcodes.h) and updated periodically
 * Includes **composable, function-based instruction wrappers**, with a syntax that directly reflects the underlying WebAssembly program structure, and attempts to simplify over the more LISP-styled WAT syntax
 * TypeScript-based instruction syntax naturally enables the ability to define convenient and powerful **macros and code generators**
-* Runs on **all major JavaScript runtimes**, including Node.js, Deno, Bun, Chromium, Firefox and Safari
+* Should run on **all major JavaScript runtimes**, including Node.js, Deno, Bun, Chromium, Firefox and Safari (NOTE: the generated binary format is WASM 3.0, and may not be compatible with some older browsers)
 * **Optimized for speed**. Takes a few microseconds (1/1000 millisecond) to build and encode the minimal example below (by comparison, the instantiation time of the resulting binary is significantly longer)
 * No runtime dependencies
 
-### NOTE: Version `0.5.0` Critical Update
+### NOTE: version `0.5.0`+ critical updates, and AI use
 
-**All** versions prior to `0.5.0` contained substantial issues with how the binary specification was interpreted, including a basic misinterpretation of how instruction codes should be encoded!
+**All** versions prior to `0.5.0`, which were fully human-crafted, contained substantial issues with how the binary specification was interpreted and implemented, including a basic incorrect encoding of multi-byte instruction codes.
 
-The new version, now with significant AI assisted corrections, and repeated automated validation against the official specification documents, has now hopefully addressed all of them, and also updated to support the full WebAssembly 3.0 specification.
+In versions starting at `0.5.0`, these issues have been identified and resolved, mostly via AI tools. AI auditing, correction, and synchronization against the official specification documents, has now become the central method for development and quality control.
 
-There may still potentially be remaining issues, and an ongoing effort of creating comprehensive unit tests may help.
+This has largely become viable due to a new AI-assisted documentation project to [convert the core WebAssembly specification to markdown](https://github.com/rotemdan/wasm-core-spec-markdown). The converted Markdown documents are terser and much easier for LLMs to parse and understand (original has complex LaTeX math formulas that are challenging to "mentally parse", even for an LLM). With the more readable specifications, errors and mismatches between the specification and implementation are much easier to diagnose and correct.
 
-The code will be repeatedly inspected and audited with newer AI models as they become available and more affordable. AI assistance is proving to be a major factor in making a project like this possible for a single developer who is not a WebAssembly expert.
+There may still potentially be remaining issues, and an ongoing effort for unit test generation is in progress to address some of it.
+
+The code will be repeatedly inspected and audited with newer AI models as they become available and more affordable.
 
 ## Installation
 
