@@ -61,6 +61,7 @@ export class WasmEncoder {
 
 			localsLookup: new Map(),
 			blockStack: [],
+			tryBlockStack: [],
 		}
 
 		// Add functions, table entries, memories and globals that are marked as exported
@@ -664,25 +665,70 @@ export class WasmEncoder {
 	}
 
 	emitFlattenedInstructions(instructions: Instruction[], context: InstructionContext) {
+		// `framedContext` is the context in effect *while a clause* (`else`/`catch`/`catch_all`/
+		// `delegate`) *is being emitted*. A frame that is immediately followed by such a clause
+		// keeps that frame open on the block stack, so `br`/`rethrow`/`delegate` inside the clause
+		// resolve against the enclosing frame (e.g. a `br` in an `else` still targets the enclosing
+		// `loop`). It is `null` when the next instruction is not a clause of the current frame.
+		let framedContext: InstructionContext | null = null
+		const baseContext: InstructionContext = { ...context }
+
 		for (let instructionIndex = 0; instructionIndex < instructions.length; instructionIndex++) {
 			const instruction = instructions[instructionIndex]
-
-			this.emitInstruction(instruction, context)
-
 			const opcodeName = instruction.opcodeName
 			const nextOpcodeName = instructions[instructionIndex + 1]?.opcodeName
 
-			if (opcodeName === 'block' ||
-				opcodeName === 'loop' ||
-				opcodeName === 'else' ||
-				opcodeName === 'catch' ||
-				opcodeName === 'catch_all' ||
-				opcodeName === 'try_table' ||
-				(opcodeName === 'if' && nextOpcodeName !== 'else') ||
-				(opcodeName === 'try' && nextOpcodeName !== 'catch' && nextOpcodeName !== 'catch_all' && nextOpcodeName !== 'delegate')) {
+			const isClause = isClauseOpcode(opcodeName)
 
+			// A try clause (`catch`/`catch_all`/`delegate`) keeps the try construct open; only its
+			// final clause closes it.
+			const continuesTry = isTryContinuationOpcode(nextOpcodeName)
+
+			// 1. Emit the instruction. Clauses see the enclosing frame. Everything else sees the
+			//    plain (post-frame) context.
+			const emitContext = (isClause && framedContext) ? framedContext : context
+			this.emitInstruction(instruction, emitContext)
+
+			// 2. Emit the trailing `end` once an instruction's full body (and any clauses) is done.
+			//    `block`/`loop`/`try_table` always close. `if` closes once its `else` is done; `try`
+			//    and its `catch`/`catch_all` clauses close once the final try clause is emitted. A
+			//    `delegate` is terminal and carries no `end` of its own.
+			const closesBlock =
+				(isFrameOpcode(opcodeName) && opcodeName !== 'if' && opcodeName !== 'try') ||
+				(opcodeName === 'if' && nextOpcodeName !== 'else') ||
+				(isTryFrameOpcode(opcodeName) && !continuesTry) ||
+				(isCatchClauseOpcode(opcodeName) && !continuesTry) ||
+				isIfClauseOpcode(opcodeName)
+
+			if (closesBlock) {
 				this.emitInstruction(Op.end, context)
 			}
+
+			// 3. Advance the context bookkeeping for the *next* sibling instruction.
+			//    A frame opens a clause only when its immediate successor is `else`/`catch`/
+			//    `catch_all` (`delegate` deliberately excluded: it uses the post-frame context, since
+			//    the current try is already "consumed" by the time a delegate clause runs).
+			const opensClause =
+				isFrameOpcode(opcodeName) &&
+				isBlockInstruction(instruction) &&
+				(isIfClauseOpcode(nextOpcodeName) || isCatchClauseOpcode(nextOpcodeName))
+
+			if (opensClause) {
+				// Keep the frame open: following clause instruction(s) must see it on the block
+				// stack. `tryBlockStack` is intentionally *not* extended here — `rethrow`/`delegate`
+				// resolve against the enclosing tries only, not the current one.
+				framedContext = {
+					...context,
+					blockStack: [instruction.blockName, ...context.blockStack],
+				}
+			} else if (!(isClause && continuesTry)) {
+				// Either this was not a clause, or it was the final clause of the try
+				// construct: the previously open frame is now closed.
+				framedContext = null
+			}
+			// else: a non-final catch clause keeps `framedContext` unchanged for the next clause.
+
+			context = { ...baseContext }
 		}
 	}
 
@@ -696,7 +742,22 @@ export class WasmEncoder {
 		if (isBlockInstruction(instruction)) {
 			context = { ...context }
 
-			context.blockStack = [instruction.blockName, ...context.blockStack]
+			// Only label-defining blocks introduce a new label onto the stack. Clauses such as
+			// `else`, `catch`, and `catch_all` share the label of their enclosing `if`/`try`
+			// block, so pushing them would shift the depth that `rethrow`/`delegate`/`br`
+			// resolve against and point at the wrong frame.
+			const pushesNewLabel = isFrameOpcode(instruction.opcodeName)
+
+			if (pushesNewLabel) {
+				context.blockStack = [instruction.blockName, ...context.blockStack]
+
+				// `try`/`try_table` also introduce a *try* frame. `rethrow`/`delegate` resolve
+				// an enclosing try by name and their label counts try frames (excluding the
+				// current one), so they consult this dedicated stack rather than `blockStack`.
+				if (isTryFrameOpcode(instruction.opcodeName)) {
+					context.tryBlockStack = [instruction.blockName, ...context.tryBlockStack]
+				}
+			}
 
 			this.emitInstructions(instruction.bodyInstructions, context)
 		}
@@ -1488,6 +1549,34 @@ export function isBlockInstruction(instruction: Instruction): instruction is Blo
 	return Array.isArray((instruction as BlockInstruction).bodyInstructions)
 }
 
+// Control-flow opcode categories used by the flattening logic. Frames are label-defining
+// blocks; clauses (`else`/`catch`/`catch_all`/`delegate`) belong to a preceding frame.
+// Centralising them as predicates (instead of duplicated inline comparisons or one-off sets)
+// gives every check a single source of truth that is reused below.
+function isIfClauseOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'else'
+}
+
+function isCatchClauseOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'catch' || opcodeName === 'catch_all'
+}
+
+function isTryContinuationOpcode(opcodeName: OpcodeName): boolean {
+	return isCatchClauseOpcode(opcodeName) || opcodeName === 'delegate'
+}
+
+function isClauseOpcode(opcodeName: OpcodeName): boolean {
+	return isIfClauseOpcode(opcodeName) || isTryContinuationOpcode(opcodeName)
+}
+
+function isFrameOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'block' || opcodeName === 'loop' || opcodeName === 'if' || opcodeName === 'try' || opcodeName === 'try_table'
+}
+
+function isTryFrameOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'try' || opcodeName === 'try_table'
+}
+
 export type ImmediatesEmitterFunc = (emitter: WasmEncoder, context: InstructionContext) => void
 
 export interface InstructionContext {
@@ -1501,6 +1590,12 @@ export interface InstructionContext {
 	dataLookup: Map<string, number>
 	tagsLookup: Map<string, number>
 	blockStack: string[]
+	
+	// Stack of *try* block names only (no `if`/`loop`/`block`/`else`/`catch`).
+	// `rethrow`/`delegate` reference an enclosing try by name, and their label must
+	// count try blocks (excluding the current one), so they resolve against this
+	// dedicated stack rather than the full `blockStack`.
+	tryBlockStack: string[]
 }
 
 export type ImmediateType = number | bigint

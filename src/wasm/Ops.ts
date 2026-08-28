@@ -85,10 +85,13 @@ export const Op = {
 		args: [targetBlockName],
 
 		immediatesEmitter: (encoder, context) => {
-			const blockIndex = context.blockStack.indexOf(targetBlockName)
+			// `rethrow` targets an enclosing `try` block by name; its label counts *try* frames
+			// (the current try is at index 0, the next enclosing try at 1, ...), so it must
+			// resolve against `tryBlockStack` rather than the full `blockStack`.
+			const blockIndex = context.tryBlockStack.indexOf(targetBlockName)
 
 			if (blockIndex < 0) {
-				throw new Error(`rethrow: Couldn't resolve block name '${targetBlockName}'`)
+				throw new Error(`rethrow: Couldn't resolve 'try' block name '${targetBlockName}'`)
 			}
 
 			encoder.emitUint(blockIndex)
@@ -100,10 +103,15 @@ export const Op = {
 		args: [targetBlockName],
 
 		immediatesEmitter: (encoder, context) => {
-			const blockIndex = context.blockStack.indexOf(targetBlockName)
+			// `delegate` is a `try` clause (sibling of the `try` it belongs to, like `catch`/
+			// `catch_all`). Its label targets an *enclosing* `try` block counted from the immediate
+			// enclosing try outward (the closest enclosing try is depth 0, the next is 1, ...). It
+			// must resolve against `tryBlockStack` (which holds only `try` frames) so that intervening
+			// `loop`/`block`/`if` frames do not shift the depth.
+			const blockIndex = context.tryBlockStack.indexOf(targetBlockName)
 
 			if (blockIndex < 0) {
-				throw new Error(`delegate: Couldn't resolve block name '${targetBlockName}'`)
+				throw new Error(`delegate: Couldn't resolve try block name '${targetBlockName}'`)
 			}
 
 			encoder.emitUint(blockIndex)
@@ -124,7 +132,7 @@ export const Op = {
 			throw new Error(`A 'try' instruction must have a body`)
 		}
 
-		const blockName = `tryBlock_${anonymousBlockCounter++}`
+		const blockName = options.name ?? `tryBlock_${anonymousBlockCounter++}`
 
 		return {
 			opcodeName: 'try',
@@ -174,7 +182,7 @@ export const Op = {
 	},
 
 	try_table: (options: TryTableOptions, body: Instruction[]): BlockInstruction => {
-		const blockName = `tryTableBlock_${anonymousBlockCounter++}`
+		const blockName = options.name ?? `tryTableBlock_${anonymousBlockCounter++}`
 
 		return {
 			opcodeName: 'try_table',
@@ -1844,6 +1852,10 @@ export interface IfOptions {
 
 export interface TryOptions {
 	returns?: ValueType | string
+	// Optional explicit block name. `rethrow`/`delegate` reference a `try` block by
+	// this name, so a named `try` is required to use those instructions. When omitted,
+	// an anonymous internal name is generated (which cannot be referenced).
+	name?: string
 }
 
 export type TryHandlerKind = 'catch' | 'catch_all' | 'catch_ref'
@@ -1865,6 +1877,7 @@ export type TryHandler = TaggedTryHandler | CatchAllTryHandler
 
 export interface TryTableOptions {
 	returns?: ValueType | string
+	name?: string
 	handlers: TryHandler[]
 }
 
