@@ -55,7 +55,6 @@ test('ref.func builds a funcref that call_ref can invoke', async () => {
 		functions: [
 			{
 				name: 'addOne',
-				export: true,
 				params: { x: NumberType.i32 },
 				returns: NumberType.i32,
 				instructions: [
@@ -94,7 +93,6 @@ test('ref.as_non_null of a non-null funcref stays non-null', async () => {
 		functions: [
 			{
 				name: 'addOne',
-				export: true,
 				params: { x: NumberType.i32 },
 				returns: NumberType.i32,
 				instructions: [
@@ -179,7 +177,6 @@ test('funcref stored in a local is non-null', async () => {
 		functions: [
 			{
 				name: 'addOne',
-				export: true,
 				params: { x: NumberType.i32 },
 				returns: NumberType.i32,
 				instructions: [
@@ -243,7 +240,6 @@ test('function returning a funcref exposes a callable to JavaScript', async () =
 		functions: [
 			{
 				name: 'addOne',
-				export: true,
 				params: { x: NumberType.i32 },
 				returns: NumberType.i32,
 				instructions: [

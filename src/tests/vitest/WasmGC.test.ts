@@ -205,7 +205,10 @@ test(`Encodes array.copy and copies an element between two arrays`, async () => 
 				params: { length: NumberType.i32 },
 				returns: NumberType.i32,
 				locals: {
-					dest: { kind: ReferenceTypeKind.LongNonNullableTypeIndex, typeIndex: intArrayTypeIndex },
+					dest: {
+						kind: ReferenceTypeKind.LongNonNullableTypeIndex,
+						typeIndex: intArrayTypeIndex
+					},
 				},
 				instructions: [
 					// dest = IntArray(length) filled with 0
