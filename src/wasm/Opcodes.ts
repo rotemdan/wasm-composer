@@ -8,10 +8,30 @@
 // `i16x8.extmul_low_i8x16_s`, `f32x4.demote_f64x2_zero`, `f32.min`,
 // `i32x4.relaxed_trunc_f32x4_s`, `i16x8.relaxed_q15mulr_s`, `f32x4.qfma`.
 //
-// Organization: the spec-aligned WASM 3.0 core opcodes are listed first and are
-// the primary, supported set. Experimental / proposal opcodes (the stringref
-// proposal, relaxed SIMD, and Float16 SIMD) are kept at the end of this object,
-// clearly separated from the core set, and are NOT part of the WASM 3.0 core.
+// ---------------------------------------------------------------------------
+// ORGANIZATION
+// ---------------------------------------------------------------------------
+// This object is split into two clearly separated regions:
+//
+//   1. WASM 3.0 CORE INSTRUCTIONS  -- the stable, spec-aligned instruction set
+//      (control flow, calls, variables, numeric, reference types, memory,
+//       SIMD, bulk memory, shared-memory atomics and garbage collection).
+//      This is the primary, supported set.
+//
+//   2. FUTURE PROPOSALS            -- experimental opcodes belonging to active
+//      proposals that are NOT part of the WASM 3.0 core. They are kept in a
+//      single block at the end of this object, grouped per proposal, and are
+//      clearly separated from region 1.
+//
+// ---------------------------------------------------------------------------
+// NOTE ON NAMING (temporary / Chromium-derived names)
+// ---------------------------------------------------------------------------
+// Every mnemonic below is taken from Chromium's wasm-opcodes.h, which is a
+// provisional, in-progress source rather than the finalized spec text format.
+// Most names already match the real WAT spelling, but some are TEMPORARY names
+// that may change before standardization. Such entries are flagged inline with
+// a [TEMP] marker. Proposal opcodes in region 2 are the most likely to be
+// renamed.
 //
 // Extraction (Chromium V(Name, 0xHEX, sig, "wat name")):
 //   RegExp: V\(([^,]*), ([^,]*), ([^,]*), ([^\)]*)\).*
@@ -19,9 +39,18 @@
 //   Clean up rest manually
 
 export const wasmOpcodes = {
-	// Statements
+	//////////////////////////////////////////////////////////////////////////////
+	// WASM 3.0 CORE INSTRUCTIONS
+	//////////////////////////////////////////////////////////////////////////////
+
+	// Control flow & structured exceptions:
+	// block/loop/if/else/end delimit well-nested constructs; br/br_if/br_table
+	// branch to them; return exits a function. try/catch/throw/rethrow plus
+	// throw_ref/try_table/delegate/catch_all implement exception handling, and
+	// br_on_null/br_on_non_null are reference-aware branch forms.
 	'unreachable': 0x00,
 	'nop': 0x01,
+	'nop_for_testing': 0x16, // [TEMP] Chromium-internal test hook; 0x16 is "reserved" in the spec.
 	'block': 0x02,
 	'loop': 0x03,
 	'if': 0x04,
@@ -42,16 +71,23 @@ export const wasmOpcodes = {
 	'br_on_null': 0xd5,
 	'br_on_non_null': 0xd6,
 
-	// Constants, locals, globals, and calls
+	// Calls & tail calls:
+	// call/call_indirect invoke functions directly or through a table; the
+	// return_call* forms are tail calls (the current frame is replaced).
+	// call_ref/return_call_ref invoke via a reference to a function.
 	'call': 0x10,
 	'call_indirect': 0x11,
 	'return_call': 0x12,
 	'return_call_indirect': 0x13,
 	'call_ref': 0x14,
 	'return_call_ref': 0x15,
+
+	// Parametric instructions: drop discards a stack value; select picks one of
+	// two values based on a condition. 0x1c is the typed (result-type-carrying)
+	// select variant.
 	'drop': 0x1a,
 	'select': 0x1b,
-	'select_with_type': 0x1c, // Not the official name (it's officially a variant of 'select')
+	'select_with_type': 0x1c, // [TEMP] not the official name; it is officially just a typed variant of 'select'
 	'local.get': 0x20,
 	'local.set': 0x21,
 	'local.tee': 0x22,
@@ -68,7 +104,10 @@ export const wasmOpcodes = {
 	'ref.func': 0xd2,
 	'ref.as_non_null': 0xd4,
 
-	// Load memory expressions
+	// Memory loads: read a value from linear memory at a given offset/alignment.
+	// The *_s/*_u variants sign-/zero-extend narrow loads; the *_32 variants load
+	// the low 32 bits of an i64. f32.load_f16/f32.store_f16 reinterpret a 16-bit
+	// float stored in memory as an f32.
 	'i32.load': 0x28,
 	'i64.load': 0x29,
 	'f32.load': 0x2a,
@@ -85,7 +124,8 @@ export const wasmOpcodes = {
 	'i64.load32_u': 0x35,
 	'f32.load_f16': 0xfc30,
 
-	// Store memory expressions
+	// Memory stores: write a value into linear memory at a given offset/alignment.
+	// The narrow variants store the low bytes of a wider value.
 	'i32.store': 0x36,
 	'i64.store': 0x37,
 	'f32.store': 0x38,
@@ -97,13 +137,17 @@ export const wasmOpcodes = {
 	'i64.store32': 0x3e,
 	'f32.store_f16': 0xfc31,
 
-	// Memory management expressions
+	// Memory size & growth: memory.size reports the current size in pages;
+	// memory.grow attempts to grow the memory and returns the previous size.
 	'memory.size': 0x3f,
 	'memory.grow': 0x40,
 
-	// Expressions with signatures.
-	// The following opcodes can be used as constant expressions under
-	// --experimental-wasm-extended-const
+	// Numeric comparison, arithmetic, conversion & reinterpretation:
+	// integer (i32/i64) and floating-point (f32/f64) relational, arithmetic and
+	// bitwise operators, plus conversions between the four number types and
+	// reinterpretation between integer and float bit patterns. The first few
+	// (i32/i64 add/sub/mul) are also permitted inside constant expressions
+	// under --experimental-wasm-extended-const.
 	'i32.add': 0x6a,
 	'i32.sub': 0x6b,
 	'i32.mul': 0x6c,
@@ -228,17 +272,19 @@ export const wasmOpcodes = {
 	'f32.reinterpret_i32': 0xbe,
 	'f64.reinterpret_i64': 0xbf,
 
-	// Sign extension:
+	// Sign extension: extend a signed narrow integer to a wider type.
 	'i32.extend8_s': 0xc0,
 	'i32.extend16_s': 0xc1,
 	'i64.extend8_s': 0xc2,
 	'i64.extend16_s': 0xc3,
 	'i64.extend32_s': 0xc4,
 
-	// Reference equality
+	// Reference equality: ref.eq tests whether two references are the same.
 	'ref.eq': 0xd3,
 
-	// SIMD
+	// SIMD (128-bit vectors): load/store, splats, shuffles, lane-wise
+	// comparisons, arithmetic, bitwise/logical ops, and conversions over packed
+	// i8x16 / i16x8 / i32x4 / i64x2 / f32x4 / f64x2 lanes.
 	'v128.load': 0xfd00,
 	'v128.load8x8_s': 0xfd01,
 	'v128.load8x8_u': 0xfd02,
@@ -462,7 +508,8 @@ export const wasmOpcodes = {
 	'f64x2.convert_low_i32x4_s': 0xfdfe,
 	'f64x2.convert_low_i32x4_u': 0xfdff,
 
-	// SIMD: extract and replace lane
+	// SIMD lane access: extract a single lane (with sign/zero extension) or
+	// replace a lane within a 128-bit vector.
 	'i8x16.extract_lane_s': 0xfd15,
 	'i8x16.extract_lane_u': 0xfd16,
 	'i16x8.extract_lane_s': 0xfd18,
@@ -481,7 +528,8 @@ export const wasmOpcodes = {
 	'f64x2.replace_lane': 0xfd22,
 	'f16x8.replace_lane': 0xfd122,
 
-	// Saturated conversions
+	// Saturating truncations: convert floats to integers, clamping out-of-range
+	// values instead of trapping (non-trapping float-to-int conversions).
 	'i32.trunc_sat_f32_s': 0xfc00,
 	'i32.trunc_sat_f32_u': 0xfc01,
 	'i32.trunc_sat_f64_s': 0xfc02,
@@ -491,16 +539,18 @@ export const wasmOpcodes = {
 	'i64.trunc_sat_f64_s': 0xfc06,
 	'i64.trunc_sat_f64_u': 0xfc07,
 
-	// Data operations
+	// Data segments: data.drop marks a passive data segment as no longer needed.
 	'data.drop': 0xfc09,
 
-	// Table operations
+	// Table operations: initialize/copy a table from a segment, drop a passive
+	// element segment, and query a table's size.
 	'table.init': 0xfc0c,
 	'elem.drop': 0xfc0d,
 	'table.copy': 0xfc0e,
 	'table.size': 0xfc10,
 
-	// Bulk memory operations
+	// Bulk memory operations: initialize memory from a passive data segment,
+	// copy/fill a region of linear memory.
 	'memory.init': 0xfc08,
 	'memory.copy': 0xfc0a,
 	'memory.fill': 0xfc0b,
@@ -511,7 +561,9 @@ export const wasmOpcodes = {
 	// 'table.fill' is polymorphic in the second parameter. It's whatever the table type is.
 	'table.fill': 0xfc11,
 
-	// Atomic operations
+	// Shared-memory atomics: wait/notify on memory locations and atomic
+	// load/store plus read-modify-write (add/sub/and/or/xor/exchange/compare-
+	// exchange) operations over i32/i64, with narrow (8/16/32-bit) variants.
 	'memory.atomic.notify': 0xfe00,
 	'memory.atomic.wait32': 0xfe01,
 	'memory.atomic.wait64': 0xfe02,
@@ -582,7 +634,10 @@ export const wasmOpcodes = {
 	// 'atomic.fence' doesn't target a particular linear memory.
 	'atomic.fence': 0xfe03,
 
-	// Garbage collected heap
+	// Garbage collection (structs, arrays, references):
+	// allocate and access GC-managed structs and arrays, perform reference
+	// tests/casts and br_on_cast, convert between any/extern, and work with
+	// i31 tagged integers. Part of the WASM 3.0 core.
 	'struct.new': 0xfb00,
 	'struct.new_default': 0xfb01,
 	'struct.get': 0xfb02,
@@ -604,9 +659,9 @@ export const wasmOpcodes = {
 	'array.init_data': 0xfb12,
 	'array.init_elem': 0xfb13,
 	'ref.test': 0xfb14,
-	'ref.test_nullable': 0xfb15,
+	'ref.test_nullable': 0xfb15, // [TEMP] Chromium spells this "ref.test null" in WAT; name may change
 	'ref.cast': 0xfb16,
-	'ref.cast_nullable': 0xfb17,
+	'ref.cast_nullable': 0xfb17, // [TEMP] Chromium spells this "ref.cast null" in WAT; name may change
 	'br_on_cast': 0xfb18,
 	'br_on_cast_fail': 0xfb19,
 	'any.convert_extern': 0xfb1a,
@@ -615,7 +670,90 @@ export const wasmOpcodes = {
 	'i31.get_s': 0xfb1d,
 	'i31.get_u': 0xfb1e,
 
-	// String references proposal:
+	//////////////////////////////////////////////////////////////////////////////
+	// FUTURE PROPOSALS  (NOT part of the WASM 3.0 core)
+	//////////////////////////////////////////////////////////////////////////////
+
+	// Each subgroup below belongs to an active proposal. None of these are part
+	// of the stabilized WASM 3.0 core. Their mnemonic names are taken verbatim
+	// from Chromium's wasm-opcodes.h and are therefore PROVISIONAL -- they are
+	// the most likely opcodes in this file to be renamed before standardization,
+	// and several are flagged inline with [TEMP]. Source of truth for opcodes
+	// and names: docs/chromium-reference/wasm-opcodes.h (Aug 2026 snapshot).
+
+	//// WasmFX: delimited continuations / control-flow resume
+
+	// Captures and resumes computation via continuations. suspend/resume*
+	// replace the stack with a continuation, and cont.new/cont.bind create
+	// and bind them.
+	'cont.new': 0xe0,
+	'cont.bind': 0xe1,
+	'suspend': 0xe2,
+	'resume': 0xe3,
+	'resume_throw': 0xe4,
+	'resume_throw_ref': 0xe5,
+	'switch': 0xe6,
+
+	//// Numeric wide arithmetic (i64 128-bit / wide multiply)
+
+	// Extended 128-bit integer addition/subtraction and full-width (i64 x i64)
+	// multiplication. [TEMP] names; this proposal is still in flux.
+	'i64.add128': 0xfc13,
+	'i64.sub128': 0xfc14,
+	'i64.mul_wide_s': 0xfc15,
+	'i64.mul_wide_u': 0xfc16,
+
+	//// GC atomics / Shared-Everything threads
+
+	// Atomic operations on GC struct/array fields plus wait/notify queues.
+	// [TEMP] names derived from Chromium; the shared-everything proposal's
+	// final text spelling is not yet settled.
+	'pause': 0xfe04,
+	'struct.wait': 0xfe05,
+	'waitqueue.notify': 0xfe06,
+	'waitqueue.new': 0xfe07,
+	'struct.atomic.get': 0xfe5c,
+	'struct.atomic.get_s': 0xfe5d,
+	'struct.atomic.get_u': 0xfe5e,
+	'struct.atomic.set': 0xfe5f,
+	'struct.atomic.rmw.add': 0xfe60,
+	'struct.atomic.rmw.sub': 0xfe61,
+	'struct.atomic.rmw.and': 0xfe62,
+	'struct.atomic.rmw.or': 0xfe63,
+	'struct.atomic.rmw.xor': 0xfe64,
+	'struct.atomic.rmw.xchg': 0xfe65,
+	'struct.atomic.rmw.cmpxchg': 0xfe66,
+	'array.atomic.get': 0xfe67,
+	'array.atomic.get_s': 0xfe68,
+	'array.atomic.get_u': 0xfe69,
+	'array.atomic.set': 0xfe6a,
+	'array.atomic.rmw.add': 0xfe6b,
+	'array.atomic.rmw.sub': 0xfe6c,
+	'array.atomic.rmw.and': 0xfe6d,
+	'array.atomic.rmw.or': 0xfe6e,
+	'array.atomic.rmw.xor': 0xfe6f,
+	'array.atomic.rmw.xchg': 0xfe70,
+	'array.atomic.rmw.cmpxchg': 0xfe71,
+
+	//// Custom Descriptors proposal (+ a few extra GC opcodes)
+
+	// Descriptor-based reference casts/br_on_cast and i31/shared variants.
+	// [TEMP] names; this proposal is experimental.
+	'ref.i31_shared': 0xfb1f,
+	'struct.new_desc': 0xfb20,
+	'struct.new_default_desc': 0xfb21,
+	'ref.get_desc': 0xfb22,
+	'ref.cast_desc_eq': 0xfb23,
+	'ref.cast_desc_eq_nullable': 0xfb24, // [TEMP] Chromium spells this "ref.cast_desc_eq null"
+	'br_on_cast_desc_eq': 0xfb25,
+	'br_on_cast_desc_eq_fail': 0xfb26,
+	'ref.cast_nop': 0xfb4c,
+
+	//// String references proposal
+
+	// First-class strings and string views (utf8/wtf8/wtf16/iter) with
+	// construction, measurement, encoding, comparison and iteration. [TEMP]
+	// names taken from Chromium's stringref implementation.
 	'string.new_utf8': 0xfb80,
 	'string.new_wtf16': 0xfb81,
 	'string.const': 0xfb82,
@@ -661,15 +799,10 @@ export const wasmOpcodes = {
 	'string.encode_wtf8_array': 0xfbb7,
 	'string.new_utf8_array_try': 0xfbb8,
 
-	// =====================================================================
-	// Experimental / proposal opcodes — NOT part of the official WASM 3.0
-	// core spec. Kept for completeness but clearly separated from the
-	// spec-aligned instructions above, which are the primary, supported set.
-	// Source of truth: docs/chromium-reference/wasm-opcodes.h (Aug 2026),
-	// FOREACH_RELAXED_SIMD_OPCODE and the stringref proposal.
-	// =====================================================================
+	//// Relaxed SIMD
 
-	// Relaxed SIMD (proposal — not in WASM 3.0 core)
+	// Deterministic-except-for-ordering SIMD helpers (swizzle, relaxed
+	// truncations, qfma/qfms, laneselect, relaxed min/max, dot products).
 	'i8x16.relaxed_swizzle': 0xfd100,
 	'i32x4.relaxed_trunc_f32x4_s': 0xfd101,
 	'i32x4.relaxed_trunc_f32x4_u': 0xfd102,
@@ -691,7 +824,11 @@ export const wasmOpcodes = {
 	'i16x8.dot_i8x16_i7x16_s': 0xfd112,
 	'i32x4.dot_i8x16_i7x16_add_s': 0xfd113,
 
-	// Float16 SIMD (proposal — not in WASM 3.0 core)
+	//// Float16 SIMD
+
+	// 16-bit floating point vector operations (splat, arithmetic, comparisons,
+	// conversions to/from f32/f64, and fused multiply-add). [TEMP] names; the
+	// f16 SIMD proposal is still stabilizing.
 	'f16x8.splat': 0xfd120,
 	'f16x8.abs': 0xfd130,
 	'f16x8.neg': 0xfd131,

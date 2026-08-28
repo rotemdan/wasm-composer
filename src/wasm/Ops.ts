@@ -8,6 +8,7 @@ export const Op = {
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	unreachable: createSimpleInstruction('unreachable'),
 	nop: createSimpleInstruction('nop'),
+	nop_for_testing: createSimpleInstruction('nop_for_testing'),
 
 	block: createBlockInstruction('block'),
 	loop: createBlockInstruction('loop'),
@@ -76,6 +77,8 @@ export const Op = {
 			encoder.emitUint(tagIndex)
 		},
 	}),
+
+	throw_ref: createSimpleInstruction('throw_ref'),
 
 	rethrow: (targetBlockName: string): Instruction => ({
 		opcodeName: 'rethrow',
@@ -253,6 +256,23 @@ export const Op = {
 
 	return: createSimpleInstruction('return'),
 
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	// WasmFX proposal instructions (delimited continuations)
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	cont: {
+		new: createSimpleInstruction('cont.new'),
+		bind: createSimpleInstruction('cont.bind'),
+	},
+
+	suspend: createSimpleInstruction('suspend'),
+	resume: createSimpleInstruction('resume'),
+	resume_throw: createSimpleInstruction('resume_throw'),
+	resume_throw_ref: createSimpleInstruction('resume_throw_ref'),
+	switch: createSimpleInstruction('switch'),
+
+	br_on_cast_desc_eq: createBranchOnCastInstruction('br_on_cast_desc_eq'),
+	br_on_cast_desc_eq_fail: createBranchOnCastInstruction('br_on_cast_desc_eq_fail'),
+
 	call: (functionName: string): Instruction => ({
 		opcodeName: 'call',
 		args: [functionName],
@@ -385,20 +405,42 @@ export const Op = {
 			}
 		}),
 
-		i31: createSimpleInstruction('ref.i31')
+		i31: createSimpleInstruction('ref.i31'),
+
+		i31_shared: createSimpleInstruction('ref.i31_shared'),
+		get_desc: createSimpleInstruction('ref.get_desc'),
+		cast_desc_eq: createSimpleInstruction('ref.cast_desc_eq'),
+		cast_desc_eq_nullable: createSimpleInstruction('ref.cast_desc_eq_nullable'),
+		cast_nop: createSimpleInstruction('ref.cast_nop')
 	},
 
-	////////////////////////////////////////////////////////////////////////////////////////////////
-	// GC instructions
-	////////////////////////////////////////////////////////////////////////////////////////////////
 	struct: {
 		new: createGCTypeInstruction('struct.new'),
 		new_default: createGCTypeInstruction('struct.new_default'),
+		new_desc: createGCTypeInstruction('struct.new_desc'),
+		new_default_desc: createGCTypeInstruction('struct.new_default_desc'),
+
 		get: createGCTypeInstructionWithFieldIndex('struct.get'),
 		get_s: createGCTypeInstructionWithFieldIndex('struct.get_s'),
 		get_u: createGCTypeInstructionWithFieldIndex('struct.get_u'),
 		set: createGCTypeInstructionWithFieldIndex('struct.set'),
-	},
+
+		wait: createSimpleInstruction('struct.wait'),
+
+		atomic: {
+			get: createGCTypeInstructionWithFieldIndex('struct.atomic.get'),
+			get_s: createGCTypeInstructionWithFieldIndex('struct.atomic.get_s'),
+			get_u: createGCTypeInstructionWithFieldIndex('struct.atomic.get_u'),
+			set: createGCTypeInstructionWithFieldIndex('struct.atomic.set'),
+			rmw_add: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.add'),
+			rmw_sub: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.sub'),
+			rmw_and: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.and'),
+			rmw_or: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.or'),
+			rmw_xor: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.xor'),
+			rmw_xchg: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.xchg'),
+			rmw_cmpxchg: createGCTypeInstructionWithFieldIndex('struct.atomic.rmw.cmpxchg'),
+		}
+},
 
 	array: {
 		new: createGCTypeInstruction('array.new'),
@@ -530,6 +572,20 @@ export const Op = {
 				encoder.emitUint(elementIndex)
 			}
 		}),
+
+		atomic: {
+			get: createGCTypeInstruction('array.atomic.get'),
+			get_s: createGCTypeInstruction('array.atomic.get_s'),
+			get_u: createGCTypeInstruction('array.atomic.get_u'),
+			set: createGCTypeInstruction('array.atomic.set'),
+			rmw_add: createGCTypeInstruction('array.atomic.rmw.add'),
+			rmw_sub: createGCTypeInstruction('array.atomic.rmw.sub'),
+			rmw_and: createGCTypeInstruction('array.atomic.rmw.and'),
+			rmw_or: createGCTypeInstruction('array.atomic.rmw.or'),
+			rmw_xor: createGCTypeInstruction('array.atomic.rmw.xor'),
+			rmw_xchg: createGCTypeInstruction('array.atomic.rmw.xchg'),
+			rmw_cmpxchg: createGCTypeInstruction('array.atomic.rmw.cmpxchg'),
+		},
 	},
 
 	any: {
@@ -711,7 +767,14 @@ export const Op = {
 	},
 
 	atomic: {
-		fence: createSimpleInstruction('atomic.fence')
+		fence: createSimpleInstruction('atomic.fence'),
+
+		pause: createSimpleInstruction('pause'),
+
+		waitqueue: {
+			notify: createSimpleInstruction('waitqueue.notify'),
+			new: createSimpleInstruction('waitqueue.new'),
+		},
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -907,6 +970,11 @@ export const Op = {
 		extend16_s: createSimpleInstruction('i64.extend16_s'),
 		extend32_s: createSimpleInstruction('i64.extend32_s'),
 
+		add128: createSimpleInstruction('i64.add128'),
+		sub128: createSimpleInstruction('i64.sub128'),
+		mul_wide_s: createSimpleInstruction('i64.mul_wide_s'),
+		mul_wide_u: createSimpleInstruction('i64.mul_wide_u'),
+
 		trunc_sat_f32_s: createSimpleInstruction('i64.trunc_sat_f32_s'),
 		trunc_sat_f32_u: createSimpleInstruction('i64.trunc_sat_f32_u'),
 		trunc_sat_f64_s: createSimpleInstruction('i64.trunc_sat_f64_s'),
@@ -1020,6 +1088,9 @@ export const Op = {
 
 		load: createMemoryReadWriteInstruction('f32.load'),
 		store: createMemoryReadWriteInstruction('f32.store'),
+
+		load_f16: createMemoryReadWriteInstruction('f32.load_f16'),
+		store_f16: createMemoryReadWriteInstruction('f32.store_f16'),
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1095,6 +1166,8 @@ export const Op = {
 		load16_splat: createMemoryReadWriteInstruction('v128.load16_splat'),
 		load32_splat: createMemoryReadWriteInstruction('v128.load32_splat'),
 		load64_splat: createMemoryReadWriteInstruction('v128.load64_splat'),
+		load32_zero: createMemoryReadWriteInstruction('v128.load32_zero'),
+		load64_zero: createMemoryReadWriteInstruction('v128.load64_zero'),
 
 		load8_lane: createMemoryReadWriteInstructionWithLane('v128.load8_lane'),
 		load16_lane: createMemoryReadWriteInstructionWithLane('v128.load16_lane'),
@@ -1235,6 +1308,9 @@ export const Op = {
 		relaxed_laneselect: createSimpleInstruction('i16x8.relaxed_laneselect'),
 		dot_i8x16_i7x16_s: createSimpleInstruction('i16x8.dot_i8x16_i7x16_s'),
 		relaxed_q15mulr_s: createSimpleInstruction('i16x8.relaxed_q15mulr_s'),
+
+		trunc_sat_f16x8_s: createSimpleInstruction('i16x8.trunc_sat_f16x8_s'),
+		trunc_sat_f16x8_u: createSimpleInstruction('i16x8.trunc_sat_f16x8_u'),
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1380,6 +1456,8 @@ export const Op = {
 		convert_i32x4_u: createSimpleInstruction('f32x4.convert_i32x4_u'),
 		demote_f64x2_zero: createSimpleInstruction('f32x4.demote_f64x2_zero'),
 
+		promote_low_f16x8: createSimpleInstruction('f32x4.promote_low_f16x8'),
+
 		// Relaxed SIMD
 		qfma: createSimpleInstruction('f32x4.qfma'),
 		qfms: createSimpleInstruction('f32x4.qfms'),
@@ -1428,6 +1506,115 @@ export const Op = {
 		qfms: createSimpleInstruction('f64x2.qfms'),
 		relaxed_min: createSimpleInstruction('f64x2.relaxed_min'),
 		relaxed_max: createSimpleInstruction('f64x2.relaxed_max'),
+	},
+
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	// 8 16-bit floating point SIMD instructions (Float16 SIMD proposal)
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	f16x8: {
+		splat: createSimpleInstruction('f16x8.splat'),
+
+		extract_lane: (laneIndex: number) =>
+			createSimpleInstruction('f16x8.extract_lane', [laneIndex]),
+		replace_lane: (laneIndex: number) =>
+			createSimpleInstruction('f16x8.replace_lane', [laneIndex]),
+
+		abs: createSimpleInstruction('f16x8.abs'),
+		neg: createSimpleInstruction('f16x8.neg'),
+		sqrt: createSimpleInstruction('f16x8.sqrt'),
+		ceil: createSimpleInstruction('f16x8.ceil'),
+		floor: createSimpleInstruction('f16x8.floor'),
+		trunc: createSimpleInstruction('f16x8.trunc'),
+		nearest: createSimpleInstruction('f16x8.nearest'),
+
+		eq: createSimpleInstruction('f16x8.eq'),
+		ne: createSimpleInstruction('f16x8.ne'),
+		lt: createSimpleInstruction('f16x8.lt'),
+		gt: createSimpleInstruction('f16x8.gt'),
+		le: createSimpleInstruction('f16x8.le'),
+		ge: createSimpleInstruction('f16x8.ge'),
+
+		add: createSimpleInstruction('f16x8.add'),
+		sub: createSimpleInstruction('f16x8.sub'),
+		mul: createSimpleInstruction('f16x8.mul'),
+		div: createSimpleInstruction('f16x8.div'),
+		min: createSimpleInstruction('f16x8.min'),
+		max: createSimpleInstruction('f16x8.max'),
+		pmin: createSimpleInstruction('f16x8.pmin'),
+		pmax: createSimpleInstruction('f16x8.pmax'),
+
+		madd: createSimpleInstruction('f16x8.madd'),
+		nmadd: createSimpleInstruction('f16x8.nmadd'),
+
+		demote_f32x4_zero: createSimpleInstruction('f16x8.demote_f32x4_zero'),
+		demote_f64x2_zero: createSimpleInstruction('f16x8.demote_f64x2_zero'),
+
+		convert_i16x8_s: createSimpleInstruction('f16x8.convert_i16x8_s'),
+		convert_i16x8_u: createSimpleInstruction('f16x8.convert_i16x8_u'),
+	},
+
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	// String references proposal instructions
+	////////////////////////////////////////////////////////////////////////////////////////////////
+	// NOTE: The stringref proposal opcodes are emitted as opcode-only instructions
+	// (no immediates). The proposal's immediate encodings are still in flux; extend
+	// these with proper immediate emitters as the proposal stabilizes.
+	string: {
+		new_utf8: createSimpleInstruction('string.new_utf8'),
+		new_wtf16: createSimpleInstruction('string.new_wtf16'),
+		const: createSimpleInstruction('string.const'),
+		measure_utf8: createSimpleInstruction('string.measure_utf8'),
+		measure_wtf8: createSimpleInstruction('string.measure_wtf8'),
+		measure_wtf16: createSimpleInstruction('string.measure_wtf16'),
+		encode_utf8: createSimpleInstruction('string.encode_utf8'),
+		encode_wtf16: createSimpleInstruction('string.encode_wtf16'),
+		concat: createSimpleInstruction('string.concat'),
+		eq: createSimpleInstruction('string.eq'),
+		is_usv_sequence: createSimpleInstruction('string.is_usv_sequence'),
+		new_lossy_utf8: createSimpleInstruction('string.new_lossy_utf8'),
+		new_wtf8: createSimpleInstruction('string.new_wtf8'),
+		encode_lossy_utf8: createSimpleInstruction('string.encode_lossy_utf8'),
+		encode_wtf8: createSimpleInstruction('string.encode_wtf8'),
+		new_utf8_try: createSimpleInstruction('string.new_utf8_try'),
+		as_wtf8: createSimpleInstruction('string.as_wtf8'),
+
+		view_wtf8: {
+			advance: createSimpleInstruction('stringview_wtf8.advance'),
+			encode_utf8: createSimpleInstruction('stringview_wtf8.encode_utf8'),
+			slice: createSimpleInstruction('stringview_wtf8.slice'),
+			encode_lossy_utf8: createSimpleInstruction('stringview_wtf8.encode_lossy_utf8'),
+			encode_wtf8: createSimpleInstruction('stringview_wtf8.encode_wtf8'),
+		},
+
+		as_wtf16: createSimpleInstruction('string.as_wtf16'),
+		view_wtf16: {
+			length: createSimpleInstruction('stringview_wtf16.length'),
+			get_codeunit: createSimpleInstruction('stringview_wtf16.get_codeunit'),
+			encode: createSimpleInstruction('stringview_wtf16.encode'),
+			slice: createSimpleInstruction('stringview_wtf16.slice'),
+		},
+
+		as_iter: createSimpleInstruction('string.as_iter'),
+		view_iter: {
+			next: createSimpleInstruction('stringview_iter.next'),
+			advance: createSimpleInstruction('stringview_iter.advance'),
+			rewind: createSimpleInstruction('stringview_iter.rewind'),
+			slice: createSimpleInstruction('stringview_iter.slice'),
+		},
+
+		compare: createSimpleInstruction('string.compare'),
+		from_code_point: createSimpleInstruction('string.from_code_point'),
+		hash: createSimpleInstruction('string.hash'),
+
+		new_utf8_array: createSimpleInstruction('string.new_utf8_array'),
+		new_wtf16_array: createSimpleInstruction('string.new_wtf16_array'),
+		encode_utf8_array: createSimpleInstruction('string.encode_utf8_array'),
+		encode_wtf16_array: createSimpleInstruction('string.encode_wtf16_array'),
+		new_lossy_utf8_array: createSimpleInstruction('string.new_lossy_utf8_array'),
+		new_wtf8_array: createSimpleInstruction('string.new_wtf8_array'),
+		encode_lossy_utf8_array: createSimpleInstruction('string.encode_lossy_utf8_array'),
+		encode_wtf8_array: createSimpleInstruction('string.encode_wtf8_array'),
+		new_utf8_array_try: createSimpleInstruction('string.new_utf8_array_try'),
 	},
 }
 
@@ -1601,7 +1788,7 @@ function createMemoryReadWriteInstructionWithLane(opcodeName: OpcodeName) {
 		createSimpleInstruction(opcodeName, [align, offset, laneIndex])
 }
 
-function createBranchOnCastInstruction(opcodeName: 'br_on_cast' | 'br_on_cast_fail') {
+function createBranchOnCastInstruction(opcodeName: OpcodeName) {
 	return (targetBlockName: string, type1: HeapType | string, type2: HeapType | string, branchOnType1Null = false, branchOnType2Null = false): Instruction => ({
 		opcodeName,
 		args: [targetBlockName, type1, type2, branchOnType1Null, branchOnType2Null],
