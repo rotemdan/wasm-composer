@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { NumberType, Op, WasmModuleDefinition } from '../../exports/Exports.js'
 import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 
-test('Encodes a Memory64 module, round-trips a 64-bit memarg offset, and returns i64 from memory.size', async () => {
+test(`Encodes a Memory64 module, round-trips a 64-bit memarg offset, and returns i64 from memory.size`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		// `indexType: 'i64'` + `bigint` limits declare a memory64 memory.
 		memories: [

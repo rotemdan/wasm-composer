@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { NumberType, Op, WasmModuleDefinition, HeapType, ReferenceTypeKind } from '../../exports/Exports.js'
 import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 
-test('Encodes i31 references and round-trips a value through i31.new / i31.get_s', async () => {
+test(`Encodes i31 references and round-trips a value through i31.new / i31.get_s`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		functions: [
 			{
@@ -28,7 +28,7 @@ test('Encodes i31 references and round-trips a value through i31.new / i31.get_s
 	expect(i31RoundTrip(1073741823)).toEqual(1073741823) // 2^30 - 1 (largest valid i31)
 })
 
-test('WasmGC: Encodes a struct type, builds an instance with struct.new, and reads fields with struct.get', async () => {
+test(`Encodes a struct type, builds an instance with struct.new, and reads fields with struct.get`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		customTypes: [
 			{
@@ -73,7 +73,7 @@ test('WasmGC: Encodes a struct type, builds an instance with struct.new, and rea
 	expect(sumPair(-3, 100)).toEqual(97)
 })
 
-test('Encodes struct.new_default and reads a zero-initialized field', async () => {
+test(`Encodes struct.new_default and reads a zero-initialized field`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		customTypes: [
 			{
@@ -107,7 +107,7 @@ test('Encodes struct.new_default and reads a zero-initialized field', async () =
 	expect(defaultPairFirstField()).toEqual(0)
 })
 
-test('Encodes an array type and reports its length with array.len', async () => {
+test(`Encodes an array type and reports its length with array.len`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		customTypes: [
 			{
@@ -145,7 +145,7 @@ test('Encodes an array type and reports its length with array.len', async () => 
 	expect(arrayLength(100, 7)).toEqual(100)
 })
 
-test('Encodes an array type and reads an element with array.get', async () => {
+test(`Encodes an array type and reads an element with array.get`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		customTypes: [
 			{
@@ -182,7 +182,7 @@ test('Encodes an array type and reads an element with array.get', async () => {
 	expect(arrayFirstElement(3, -42)).toEqual(-42)
 })
 
-test('Encodes array.copy and copies an element between two arrays', async () => {
+test(`Encodes array.copy and copies an element between two arrays`, async () => {
 	// `IntArray` is the only custom type and there is a single function, so its
 	// assigned type index is 1.
 	const intArrayTypeIndex = 1
@@ -242,7 +242,7 @@ test('Encodes array.copy and copies an element between two arrays', async () => 
 	expect(copyFirstElement(4)).toEqual(99)
 })
 
-test('Encodes ref.null with an abstract GC heap type and ref.is_null', async () => {
+test(`Encodes ref.null with an abstract GC heap type and ref.is_null`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		functions: [
 			{

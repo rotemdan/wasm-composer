@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { NumberType, Op, WasmModuleDefinition } from '../../exports/Exports.js'
 import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 
-test('Encodes a WASM module with a single "add" function and executes it correctly', async () => {
+test(`Encodes a WASM module with a single "add" function and executes it correctly`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		functions: [
 			{
@@ -30,7 +30,7 @@ test('Encodes a WASM module with a single "add" function and executes it correct
 	expect(add(-53, 13)).toEqual(-53 + 13)
 })
 
-test('Encodes a WASM module with a single "isGreaterThan" function and executes it correctly', async () => {
+test(`Encodes a WASM module with a single "isGreaterThan" function and executes it correctly`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		functions: [
 			{
@@ -69,7 +69,7 @@ test('Encodes a WASM module with a single "isGreaterThan" function and executes 
 	expect(isGreaterThan(1111, 1234)).toEqual(0)
 })
 
-test('Encodes a WASM module with a single "add10_KTimes" function and executes it correctly', async () => {
+test(`Encodes a WASM module with a single "add10_KTimes" function and executes it correctly`, async () => {
 	const wasmModuleDefinition: WasmModuleDefinition = {
 		functions: [
 			{
