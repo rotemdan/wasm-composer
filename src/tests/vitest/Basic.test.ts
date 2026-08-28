@@ -122,5 +122,5 @@ test(`Encodes a WASM module with a single "add10_KTimes" function and executes i
 	const add10_KTimes = moduleExports.add10_KTimes as Function
 
 	expect(add10_KTimes(31, 5)).toEqual(31 + (10 * 5))
-	expect(add10_KTimes(-56, 22)).toEqual(-56 + (10 * 22))
+	expect(add10_KTimes(-556, 22)).toEqual(-556 + (10 * 22))
 })

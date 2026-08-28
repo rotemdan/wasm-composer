@@ -5,3 +5,4 @@ dist
 out
 reference-data
 docs
+src/tests/vitest/scratch
