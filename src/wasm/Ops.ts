@@ -1569,12 +1569,14 @@ function createMemoryInstruction(opcodeName: OpcodeName) {
 }
 
 function createMemoryReadWriteInstruction(opcodeName: OpcodeName) {
-	return (align: number, offset: number) =>
+	// `offset` may be `bigint` for memory64, where the memarg offset immediate is
+	// encoded as a 64-bit unsigned integer.
+	return (align: number, offset: number | bigint) =>
 		createSimpleInstruction(opcodeName, [align, offset])
 }
 
 function createMemoryReadWriteInstructionWithLane(opcodeName: OpcodeName) {
-	return (align: number, offset: number, laneIndex: number) =>
+	return (align: number, offset: number | bigint, laneIndex: number) =>
 		createSimpleInstruction(opcodeName, [align, offset, laneIndex])
 }
 

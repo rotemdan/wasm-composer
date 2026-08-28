@@ -1185,8 +1185,10 @@ export interface MemoryEntry extends Limits {
 }
 
 export interface Limits {
-	minimum: number
-	maximum?: number
+	// `minimum`/`maximum` may be `bigint` for memory64 (and table64) where the
+	// limits are encoded as 64-bit unsigned integers.
+	minimum: number | bigint
+	maximum?: number | bigint
 	indexType?: 'i32' | 'i64'
 }
 
