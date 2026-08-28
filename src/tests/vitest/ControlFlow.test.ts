@@ -18,16 +18,6 @@ import { encodeAndInstantiateWasmModuleDefinition } from './Common.js'
 // any of these fail, it points at a real depth-counting bug rather than at the test itself.
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function tagModule(tags: WasmModuleDefinition['tags'], functions: WasmModuleDefinition['functions']): WasmModuleDefinition {
-	return {
-		customTypes: [
-			{ name: 'emptyFunc', type: { paramTypes: [], returnTypes: [] } },
-		],
-		tags,
-		functions,
-	}
-}
-
 test('br from a catch clause targets an enclosing loop that wraps the whole try', async () => {
 	// This is *valid*: OUTER is still open when we are in the catch, so branching to it is legal.
 	// (Branching to a loop *inside* the try body would be illegal — that frame has already unwound.)
@@ -454,3 +444,17 @@ test('deeply nested loop/block/try with br and br_if from within catch clauses',
 	expect(walk(0)).toEqual(7)
 	expect(walk(3)).toEqual(7)
 })
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// Helpers
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function tagModule(tags: WasmModuleDefinition['tags'], functions: WasmModuleDefinition['functions']): WasmModuleDefinition {
+	return {
+		customTypes: [
+			{ name: 'emptyFunc', type: { paramTypes: [], returnTypes: [] } },
+		],
+		tags,
+		functions,
+	}
+}
