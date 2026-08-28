@@ -181,7 +181,22 @@ export class WasmEncoder {
 			this.emitStartSection(startDefinition)
 		}
 
-		this.emitElementsSection(elementsDefinitions, globalInstructionContext)
+		// Collect every function referenced via `ref.func` so that non-exported functions
+		// become "declared" in the module. Without this, engines reject `ref.func`/`call_ref`
+		// targeting an undeclared (non-exported, non-element-referenced) function with
+		// "undeclared reference to function #N".
+		const refFuncTargets = new Set<string>()
+
+		functionDefinitions.forEach(entry => this.collectRefFuncTargets(entry.instructions, refFuncTargets))
+		globalsDefinitions.forEach(entry => this.collectRefFuncTargets(entry.instructions, refFuncTargets))
+		elementsDefinitions.forEach(entry => this.collectRefFuncTargetsFromElement(entry, refFuncTargets))
+
+		const allElementsDefinitions = [
+			...elementsDefinitions,
+			...this.getElementDefinitionsForRefFuncTargets(refFuncTargets, globalInstructionContext)
+		]
+
+		this.emitElementsSection(allElementsDefinitions, globalInstructionContext)
 
 		if (dataDefinitions.length > 0) {
 			this.emitDataCountSection(dataDefinitions.length)
@@ -553,7 +568,7 @@ export class WasmEncoder {
 
 			const localNames = [...Object.keys(entry.params), ...(Object.keys(entry.locals ?? {}))]
 
-			localNames.forEach((name, index)  => {
+			localNames.forEach((name, index) => {
 				instructionContext.localsLookup.set(name, index)
 			})
 
@@ -679,7 +694,7 @@ export class WasmEncoder {
 		}
 
 		if (isBlockInstruction(instruction)) {
-			context = { ...context}
+			context = { ...context }
 
 			context.blockStack = [instruction.blockName, ...context.blockStack]
 
@@ -907,6 +922,75 @@ export class WasmEncoder {
 	get byteCount() {
 		return this.outputBytes.length
 	}
+
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Private utilities
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	private getElementDefinitionsForRefFuncTargets(refFuncTargets: Set<string>, globalInstructionContext: InstructionContext) {
+		const elementDefinitions: ElementEntry[] = []
+
+		const declaredRefFuncTargets = Array.from(refFuncTargets).filter(name => globalInstructionContext.functionsLookup.has(name))
+
+		if (declaredRefFuncTargets.length > 0) {
+			elementDefinitions.push({
+				name: '__wasm_composer_declarations__',
+				flags: ElementEntryType.DeclarativeWithInstructions,
+				referenceType: { kind: ReferenceTypeKind.ShortTypeId, typeId: HeapType.func },
+				functionInstructions: declaredRefFuncTargets.map(name => Op.ref.func(name)),
+			})
+		}
+
+		return elementDefinitions
+	}
+
+	// Recursively collects the names of every function referenced by a `ref.func` instruction.
+	// A function reached via `ref.func` (and thus indirectly via `call_ref`) must be "declared"
+	// in the module, otherwise engines reject it with "undeclared reference to function #N".
+	private collectRefFuncTargets(instructions: Instructions, targets: Set<string>) {
+		for (const element of instructions) {
+			if (Array.isArray(element)) {
+				this.collectRefFuncTargets(element, targets)
+
+				continue
+			}
+
+			if (element.opcodeName === 'ref.func') {
+				targets.add(element.args[0] as string)
+			}
+
+			if (isBlockInstruction(element)) {
+				this.collectRefFuncTargets(element.bodyInstructions, targets)
+			}
+		}
+	}
+
+	private collectRefFuncTargetsFromElement(entry: ElementEntry, targets: Set<string>) {
+		switch (entry.flags) {
+			case ElementEntryType.ActiveTableZeroWithInstructions:
+			case ElementEntryType.ActiveWithInstructions: {
+				this.collectRefFuncTargets(entry.instructions, targets)
+				this.collectRefFuncTargets(entry.functionInstructions, targets)
+
+				break
+			}
+
+			case ElementEntryType.PassiveWithInstructions:
+			case ElementEntryType.DeclarativeWithInstructions: {
+				this.collectRefFuncTargets(entry.functionInstructions, targets)
+
+				break
+			}
+
+			case ElementEntryType.ActiveTableZero:
+			case ElementEntryType.Passive:
+			case ElementEntryType.Active:
+			case ElementEntryType.Declarative: {
+				// These reference functions via numeric indexes, which already declare them.
+				break
+			}
+		}
+	}
 }
 
 export const encodeInt = encodeSignedLeb128
@@ -1023,7 +1107,7 @@ function isRecursiveType(recursiveTypeOrSubtype: SubtypeOrRecursiveType): recurs
 
 function isFunctionSignature(compositeType: CompositeType): compositeType is FunctionSignature {
 	return (compositeType as FunctionSignature).paramTypes !== undefined &&
-		   (compositeType as FunctionSignature).returnTypes !== undefined
+		(compositeType as FunctionSignature).returnTypes !== undefined
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
