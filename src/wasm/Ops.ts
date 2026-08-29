@@ -65,60 +65,15 @@ export const Op = {
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// Exception handling instructions
 	////////////////////////////////////////////////////////////////////////////////////////////////
-	throw: (tagName: string): Instruction => ({
-		opcodeName: 'throw',
-		args: [tagName],
-
-		immediatesEmitter: (encoder, context) => {
-			const tagIndex = context.tagsLookup.get(tagName)
-
-			if (tagIndex === undefined) {
-				throw new Error(`throw: Couldn't resolve tag name '${tagName}'`)
-			}
-
-			encoder.emitUint(tagIndex)
-		},
-	}),
+	throw: createNamedReferenceInstruction('throw', 'tagsLookup', 'tag name'),
 
 	throw_ref: createSimpleInstruction('throw_ref'),
 
-	rethrow: (targetBlockName: string): Instruction => ({
-		opcodeName: 'rethrow',
-		args: [targetBlockName],
-
-		immediatesEmitter: (encoder, context) => {
-			// `rethrow` targets an enclosing `try` block by name; its label counts *try* frames
-			// (the current try is at index 0, the next enclosing try at 1, ...), so it must
-			// resolve against `tryBlockStack` rather than the full `blockStack`.
-			const blockIndex = context.tryBlockStack.indexOf(targetBlockName)
-
-			if (blockIndex < 0) {
-				throw new Error(`rethrow: Couldn't resolve 'try' block name '${targetBlockName}'`)
-			}
-
-			encoder.emitUint(blockIndex)
-		},
-	}),
-
-	delegate: (targetBlockName: string): Instruction => ({
-		opcodeName: 'delegate',
-		args: [targetBlockName],
-
-		immediatesEmitter: (encoder, context) => {
-			// `delegate` is a `try` clause (sibling of the `try` it belongs to, like `catch`/
-			// `catch_all`). Its label targets an *enclosing* `try` block counted from the immediate
-			// enclosing try outward (the closest enclosing try is depth 0, the next is 1, ...). It
-			// must resolve against `tryBlockStack` (which holds only `try` frames) so that intervening
-			// `loop`/`block`/`if` frames do not shift the depth.
-			const blockIndex = context.tryBlockStack.indexOf(targetBlockName)
-
-			if (blockIndex < 0) {
-				throw new Error(`delegate: Couldn't resolve try block name '${targetBlockName}'`)
-			}
-
-			encoder.emitUint(blockIndex)
-		},
-	}),
+	// `rethrow`/`delegate` reference an enclosing `try` block by name. Their label counts
+	// *try* frames only (excluding the current one), so they resolve against `tryBlockStack`
+	// rather than the full `blockStack`.
+	rethrow: createBranchInstruction('rethrow', 'tryBlockStack'),
+	delegate: createBranchInstruction('delegate', 'tryBlockStack'),
 
 	try: (optionsOrBody: TryOptions | Instruction[], body?: Instruction[]): BlockInstruction => {
 		let options: TryOptions
@@ -281,104 +236,34 @@ export const Op = {
 	resume_throw_ref: createSimpleInstruction('resume_throw_ref'),
 	switch: createSimpleInstruction('switch'),
 
-	call: (functionName: string): Instruction => ({
-		opcodeName: 'call',
-		args: [functionName],
-
-		immediatesEmitter: (encoder, context) => {
-			const functionIndex = context.functionsLookup.get(functionName)
-
-			if (functionIndex === undefined) {
-				throw new Error(`call: Couldn't resolve function reference '${functionName}'`)
-			}
-
-			encoder.emitUint(functionIndex)
-		}
-	}),
+	call: createNamedReferenceInstruction('call', 'functionsLookup', 'function reference'),
 	call_indirect: (typeName: string, tableName: string): Instruction => ({
 		opcodeName: 'call_indirect',
 		args: [typeName, tableName],
 
 		immediatesEmitter: (encoder, context) => {
-			const typeIndex = context.typesLookup.get(typeName)
-
-			if (typeIndex === undefined) {
-				throw new Error(`call_indirect: Couldn't resolve type name '${typeName}'`)
-			}
-
-			const tableIndex = context.tablesLookup.get(tableName)
-
-			if (tableIndex === undefined) {
-				throw new Error(`call_indirect: Couldn't resolve table name '${tableName}'`)
-			}
+			const typeIndex = resolveIndex(context.typesLookup, typeName, 'call_indirect', 'type name')
+			const tableIndex = resolveIndex(context.tablesLookup, tableName, 'call_indirect', 'table name')
 
 			encoder.emitUint(typeIndex)
 			encoder.emitUint(tableIndex)
 		}
 	}),
-	call_ref: (typeName: string): Instruction => ({
-		opcodeName: 'call_ref',
-		args: [typeName],
-
-		immediatesEmitter: (encoder, context) => {
-			const typeIndex = context.typesLookup.get(typeName)
-
-			if (typeIndex === undefined) {
-				throw new Error(`call_ref: Couldn't resolve type name '${typeName}'`)
-			}
-
-			encoder.emitUint(typeIndex)
-		}
-	}),
-	return_call: (functionName: string): Instruction => ({
-		opcodeName: 'return_call',
-		args: [functionName],
-
-		immediatesEmitter: (encoder, context) => {
-			const functionIndex = context.functionsLookup.get(functionName)
-
-			if (functionIndex === undefined) {
-				throw new Error(`return_call: Couldn't resolve function reference '${functionName}'`)
-			}
-
-			encoder.emitUint(functionIndex)
-		}
-	}),
+	call_ref: createNamedReferenceInstruction('call_ref', 'typesLookup', 'type name'),
+	return_call: createNamedReferenceInstruction('return_call', 'functionsLookup', 'function reference'),
 	return_call_indirect: (typeName: string, tableName: string): Instruction => ({
 		opcodeName: 'return_call_indirect',
 		args: [typeName, tableName],
 
 		immediatesEmitter: (encoder, context) => {
-			const typeIndex = context.typesLookup.get(typeName)
-
-			if (typeIndex === undefined) {
-				throw new Error(`return_call_indirect: Couldn't resolve type name '${typeName}'`)
-			}
-
-			const tableIndex = context.tablesLookup.get(tableName)
-
-			if (tableIndex === undefined) {
-				throw new Error(`return_call_indirect: Couldn't resolve table name '${tableName}'`)
-			}
+			const typeIndex = resolveIndex(context.typesLookup, typeName, 'return_call_indirect', 'type name')
+			const tableIndex = resolveIndex(context.tablesLookup, tableName, 'return_call_indirect', 'table name')
 
 			encoder.emitUint(typeIndex)
 			encoder.emitUint(tableIndex)
 		}
 	}),
-	return_call_ref: (typeName: string): Instruction => ({
-		opcodeName: 'return_call_ref',
-		args: [typeName],
-
-		immediatesEmitter: (encoder, context) => {
-			const typeIndex = context.typesLookup.get(typeName)
-
-			if (typeIndex === undefined) {
-				throw new Error(`return_call_ref: Couldn't resolve type name '${typeName}'`)
-			}
-
-			encoder.emitUint(typeIndex)
-		}
-	}),
+	return_call_ref: createNamedReferenceInstruction('return_call_ref', 'typesLookup', 'type name'),
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// Reference instructions
@@ -393,39 +278,12 @@ export const Op = {
 			}
 		}),
 		is_null: createSimpleInstruction('ref.is_null'),
-		func: (funcName: string): Instruction => ({
-			opcodeName: 'ref.func',
-			args: [funcName],
-
-			immediatesEmitter: (encoder, context) => {
-				const funcIndex = context.functionsLookup.get(funcName)
-
-				if (funcIndex === undefined) {
-					throw new Error(`ref.func: couldn't resolve function name '${funcName}`)
-				}
-
-				encoder.emitUint(funcIndex)
-			}
-		}),
+		func: createNamedReferenceInstruction('ref.func', 'functionsLookup', 'function name'),
 		eq: createSimpleInstruction('ref.eq'),
 		as_non_null: createSimpleInstruction('ref.as_non_null'),
 
-		test: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
-			opcodeName: nullable ? 'ref.test_nullable' : 'ref.test',
-			args: [heapTypeId, nullable],
-
-			immediatesEmitter: (encoder, context) => {
-				encoder.emitHeapType(heapTypeId, context)
-			}
-		}),
-		cast: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
-			opcodeName: nullable ? 'ref.cast_nullable' : 'ref.cast',
-			args: [heapTypeId, nullable],
-
-			immediatesEmitter: (encoder, context) => {
-				encoder.emitHeapType(heapTypeId, context)
-			}
-		}),
+		test: createHeapTypeCastInstruction('ref.test'),
+		cast: createHeapTypeCastInstruction('ref.cast'),
 
 		i31: createSimpleInstruction('ref.i31'),
 
@@ -433,22 +291,8 @@ export const Op = {
 		// i31/shared reference variants and descriptor-equality casts. See Opcodes.ts.
 		i31_shared: createSimpleInstruction('ref.i31_shared'),
 		get_desc: createSimpleInstruction('ref.get_desc'),
-		cast_desc_eq: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
-			opcodeName: nullable ? 'ref.cast_desc_eq_nullable' : 'ref.cast_desc_eq',
-			args: [heapTypeId, nullable],
-
-			immediatesEmitter: (encoder, context) => {
-				encoder.emitHeapType(heapTypeId, context)
-			}
-		}),
-		cast_desc_eq_nullable: (heapTypeId: HeapType | string): Instruction => ({
-			opcodeName: 'ref.cast_desc_eq_nullable',
-			args: [heapTypeId, true],
-
-			immediatesEmitter: (encoder, context) => {
-				encoder.emitHeapType(heapTypeId, context)
-			}
-		}),
+		cast_desc_eq: createHeapTypeCastInstruction('ref.cast_desc_eq'),
+		cast_desc_eq_nullable: (heapTypeId: HeapType | string) => createHeapTypeCastInstruction('ref.cast_desc_eq')(heapTypeId, true),
 		cast_nop: (heapTypeId: HeapType | string): Instruction => ({
 			opcodeName: 'ref.cast_nop',
 			args: [heapTypeId],
@@ -459,7 +303,6 @@ export const Op = {
 		}),
 
 		// NOTE: These two belong to the Custom Descriptors proposal (per Opcodes.ts),
-		// moved here from the WasmFX block for correct proposal grouping.
 		br_on_cast_desc_eq: createBranchOnCastInstruction('br_on_cast_desc_eq'),
 		br_on_cast_desc_eq_fail: createBranchOnCastInstruction('br_on_cast_desc_eq_fail'),
 	},
@@ -502,11 +345,7 @@ export const Op = {
 			args: [typeName, arrayLength],
 
 			immediatesEmitter: (encoder, context) => {
-				const typeIndex = context.typesLookup.get(typeName)
-
-				if (typeIndex === undefined) {
-					throw new Error(`array.new_fixed: Couldn't resolve type name '${typeName}'`)
-				}
+				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.new_fixed', 'type name')
 
 				encoder.emitUint(typeIndex)
 				encoder.emitUint(arrayLength)
@@ -517,17 +356,8 @@ export const Op = {
 			args: [typeName, dataEntryName],
 
 			immediatesEmitter: (encoder, context) => {
-				const typeIndex = context.typesLookup.get(typeName)
-
-				if (typeIndex === undefined) {
-					throw new Error(`array.new_data: Couldn't resolve type name '${typeName}'`)
-				}
-
-				const dataEntryIndex = context.dataLookup.get(dataEntryName)
-
-				if (dataEntryIndex === undefined) {
-					throw new Error(`array.new_data: Couldn't resolve data entry name '${dataEntryName}'`)
-				}
+				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.new_data', 'type name')
+				const dataEntryIndex = resolveIndex(context.dataLookup, dataEntryName, 'array.new_data', 'data entry name')
 
 				encoder.emitUint(typeIndex)
 				encoder.emitUint(dataEntryIndex)
@@ -538,17 +368,8 @@ export const Op = {
 			args: [typeName, elementName],
 
 			immediatesEmitter: (encoder, context) => {
-				const typeIndex = context.typesLookup.get(typeName)
-
-				if (typeIndex === undefined) {
-					throw new Error(`array.new_elem: Couldn't resolve type name '${typeName}'`)
-				}
-
-				const elementIndex = context.elementsLookup.get(elementName)
-
-				if (elementIndex === undefined) {
-					throw new Error(`array.new_elem: Couldn't resolve element entry name '${elementName}'`)
-				}
+				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.new_elem', 'type name')
+				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'array.new_elem', 'element name')
 
 				encoder.emitUint(typeIndex)
 				encoder.emitUint(elementIndex)
@@ -564,17 +385,8 @@ export const Op = {
 			args: [destTypeName, sourceTypeName],
 
 			immediatesEmitter: (encoder, context) => {
-				const destTypeIndex = context.typesLookup.get(destTypeName)
-
-				if (destTypeIndex === undefined) {
-					throw new Error(`array.copy: Couldn't resolve destination type name '${destTypeName}'`)
-				}
-
-				const sourceTypeIndex = context.typesLookup.get(sourceTypeName)
-
-				if (sourceTypeIndex === undefined) {
-					throw new Error(`array.copy: Couldn't resolve source type name '${sourceTypeName}'`)
-				}
+				const destTypeIndex = resolveIndex(context.typesLookup, destTypeName, 'array.copy', 'destination type name')
+				const sourceTypeIndex = resolveIndex(context.typesLookup, sourceTypeName, 'array.copy', 'source type name')
 
 				encoder.emitUint(destTypeIndex)
 				encoder.emitUint(sourceTypeIndex)
@@ -587,17 +399,8 @@ export const Op = {
 			args: [typeName, dataEntryName],
 
 			immediatesEmitter: (encoder, context) => {
-				const typeIndex = context.typesLookup.get(typeName)
-
-				if (typeIndex === undefined) {
-					throw new Error(`array.init_data: Couldn't resolve type name '${typeName}'`)
-				}
-
-				const dataEntryIndex = context.dataLookup.get(dataEntryName)
-
-				if (dataEntryIndex === undefined) {
-					throw new Error(`array.init_data: Couldn't resolve data entry name '${dataEntryName}'`)
-				}
+				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.init_data', 'type name')
+				const dataEntryIndex = resolveIndex(context.dataLookup, dataEntryName, 'array.init_data', 'data entry name')
 
 				encoder.emitUint(typeIndex)
 				encoder.emitUint(dataEntryIndex)
@@ -608,17 +411,8 @@ export const Op = {
 			args: [typeName, elementName],
 
 			immediatesEmitter: (encoder, context) => {
-				const typeIndex = context.typesLookup.get(typeName)
-
-				if (typeIndex === undefined) {
-					throw new Error(`array.init_elem: Couldn't resolve type name '${typeName}'`)
-				}
-
-				const elementIndex = context.elementsLookup.get(elementName)
-
-				if (elementIndex === undefined) {
-					throw new Error(`array.init_elem: Couldn't resolve element entry name '${elementName}'`)
-				}
+				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.init_elem', 'type name')
+				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'array.init_elem', 'element name')
 
 				encoder.emitUint(typeIndex)
 				encoder.emitUint(elementIndex)
@@ -659,23 +453,19 @@ export const Op = {
 	// Parameteric instructions
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	drop: createSimpleInstruction('drop'),
-	select: (valueTypes?: ValueType[]): Instruction => {
-		const instruction: Instruction = {
-			// NOTE: `select_with_type` is NOT an official WASM 3.0 mnemonic (the name is
+	select: (valueTypes?: ValueType[]): Instruction => ({
+		// NOTE: `select_with_type` is NOT an official WASM 3.0 mnemonic (the name is
 		// provisional, flagged [TEMP] in Opcodes.ts). It is the typed (result-type-
 		// carrying) variant of `select` at opcode 0x1c.
 		opcodeName: valueTypes === undefined ? 'select' : 'select_with_type',
-			args: [valueTypes],
+		args: [valueTypes],
 
-			immediatesEmitter: (encoder) => {
-				if (valueTypes) {
-					encoder.emitLengthPrefixedValueTypeArray(valueTypes)
-				}
+		immediatesEmitter: (encoder) => {
+			if (valueTypes) {
+				encoder.emitLengthPrefixedValueTypeArray(valueTypes)
 			}
 		}
-
-		return instruction
-	},
+	}),
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// Locals-related instructions
@@ -706,17 +496,8 @@ export const Op = {
 			args: [tableName, elementName],
 
 			immediatesEmitter: (encoder, context) => {
-				const tableIndex = context.tablesLookup.get(tableName)
-
-				if (tableIndex === undefined) {
-					throw new Error(`table.init: Couldn't resolve table name '${tableName}'`)
-				}
-
-				const elementIndex = context.elementsLookup.get(elementName)
-
-				if (elementIndex === undefined) {
-					throw new Error(`table.init: Couldn't resolve element name '${elementName}'`)
-				}
+				const tableIndex = resolveIndex(context.tablesLookup, tableName, 'table.init', 'table name')
+				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'table.init', 'element name')
 
 				encoder.emitUint(tableIndex)
 				encoder.emitUint(elementIndex)
@@ -727,17 +508,8 @@ export const Op = {
 			args: [sourceTableName, targetTableName],
 
 			immediatesEmitter: (encoder, context) => {
-				const sourceTableIndex = context.tablesLookup.get(sourceTableName)
-
-				if (sourceTableIndex === undefined) {
-					throw new Error(`table.copy: Couldn't resolve source table name '${sourceTableName}'`)
-				}
-
-				const targetTableIndex = context.tablesLookup.get(targetTableName)
-
-				if (targetTableIndex === undefined) {
-					throw new Error(`table.copy: Couldn't resolve target table name '${targetTableName}'`)
-				}
+				const sourceTableIndex = resolveIndex(context.tablesLookup, sourceTableName, 'table.copy', 'source table name')
+				const targetTableIndex = resolveIndex(context.tablesLookup, targetTableName, 'table.copy', 'target table name')
 
 				// Binary layout is `table.copy x1 x2` where x1 is the destination table and
 				// x2 is the source table (consistent with `memory.copy`), so we emit the
@@ -752,20 +524,7 @@ export const Op = {
 	},
 
 	elem: {
-		drop: (elementName: string): Instruction => ({
-			opcodeName: 'elem.drop',
-			args: [elementName],
-
-			immediatesEmitter: (encoder, context) => {
-				const elementIndex = context.elementsLookup.get(elementName)
-
-				if (elementIndex === undefined) {
-					throw new Error(`elem.drop: Couldn't resolve element name '${elementName}'`)
-				}
-
-				encoder.emitUint(elementIndex)
-			}
-		}),
+		drop: createNamedReferenceInstruction('elem.drop', 'elementsLookup', 'element name'),
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -779,18 +538,10 @@ export const Op = {
 			args: [memoryName, dataEntryName],
 
 			immediatesEmitter: (encoder, context) => {
-				const memoryIndex = context.memoriesLookup.get(memoryName)
+				const memoryIndex = resolveIndex(context.memoriesLookup, memoryName, 'memory.init', 'memory name')
+				const dataEntryIndex = resolveIndex(context.dataLookup, dataEntryName, 'memory.init', 'data entry name')
 
-				if (memoryIndex === undefined) {
-					throw new Error(`memory.init: Couldn't resolve memory name '${memoryName}'`)
-				}
-
-				const dataEntryIndex = context.dataLookup.get(dataEntryName)
-
-				if (dataEntryIndex === undefined) {
-					throw new Error(`memory.init: Couldn't resolve data entry name '${dataEntryName}'`)
-				}
-
+				// Binary layout emits the data segment index before the memory index.
 				encoder.emitUint(dataEntryIndex)
 				encoder.emitUint(memoryIndex)
 			}
@@ -800,17 +551,8 @@ export const Op = {
 			args: [memory1Name, memory2Name],
 
 			immediatesEmitter: (encoder, context) => {
-				const memory1Index = context.memoriesLookup.get(memory1Name)
-
-				if (memory1Index === undefined) {
-					throw new Error(`memory.copy: Couldn't resolve memory 1 name '${memory1Name}'`)
-				}
-
-				const memory2Index = context.memoriesLookup.get(memory2Name)
-
-				if (memory2Index === undefined) {
-					throw new Error(`memory.copy: Couldn't resolve memory 2 name '${memory2Name}'`)
-				}
+				const memory1Index = resolveIndex(context.memoriesLookup, memory1Name, 'memory.copy', 'memory 1 name')
+				const memory2Index = resolveIndex(context.memoriesLookup, memory2Name, 'memory.copy', 'memory 2 name')
 
 				encoder.emitUint(memory1Index)
 				encoder.emitUint(memory2Index)
@@ -843,20 +585,7 @@ export const Op = {
 	// Data entry instructions
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	data: {
-		drop: (dataEntryName: string): Instruction => ({
-			opcodeName: 'data.drop',
-			args: [dataEntryName],
-
-			immediatesEmitter: (encoder, context) => {
-				const dataEntryIndex = context.dataLookup.get(dataEntryName)
-
-				if (dataEntryIndex === undefined) {
-					throw new Error(`data.drop: Couldn't resolve data entry name '${dataEntryName}'`)
-				}
-
-				encoder.emitUint(dataEntryIndex)
-			}
-		}),
+		drop: createNamedReferenceInstruction('data.drop', 'dataLookup', 'data entry name'),
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1625,6 +1354,7 @@ export const Op = {
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// String references proposal instructions (NOT part of the WASM 3.0 core)
 	////////////////////////////////////////////////////////////////////////////////////////////////
+
 	// NOTE: The stringref proposal opcodes are emitted as opcode-only instructions
 	// (no immediates). The proposal's immediate encodings are still in flux; extend
 	// these with proper immediate emitters as the proposal stabilizes.
@@ -1688,46 +1418,69 @@ export const Op = {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// Helper methods
+// Shared helpers
 ////////////////////////////////////////////////////////////////////////////////////////////////
-function createNamedLocalInstruction(opcodeName: OpcodeName, localName: string) {
-	const instruction: Instruction = {
-		opcodeName,
+type LookupMapKey =
+	| 'functionsLookup'
+	| 'typesLookup'
+	| 'tablesLookup'
+	| 'memoriesLookup'
+	| 'globalsLookup'
+	| 'elementsLookup'
+	| 'dataLookup'
+	| 'tagsLookup'
+	| 'localsLookup'
 
-		args: [localName],
+// Resolve a named symbol from a lookup table, throwing a descriptive error if missing.
+function resolveIndex(
+	lookup: Map<string, number>,
+	name: string,
+	opcodeName: OpcodeName,
+	resourceLabel: string,
+): number {
+	const index = lookup.get(name)
 
-		immediatesEmitter: (encoder, context) => {
-			const localIndex = context.localsLookup.get(localName)
-
-			if (localIndex === undefined) {
-				throw new Error(`${opcodeName}: Couldn't resolve local '${localName}'`)
-			}
-
-			encoder.emitUint(localIndex)
-		}
+	if (index === undefined) {
+		throw new Error(`${opcodeName}: Couldn't resolve ${resourceLabel} '${name}'`)
 	}
 
-	return instruction
+	return index
+}
+
+// Build an instruction that emits the index of a single named symbol.
+function createNamedReferenceInstruction(
+	opcodeName: OpcodeName,
+	lookupKey: LookupMapKey,
+	resourceLabel: string,
+) {
+	return (name: string): Instruction => ({
+		opcodeName,
+		args: [name],
+		immediatesEmitter: (encoder, context) => {
+			encoder.emitUint(resolveIndex(context[lookupKey], name, opcodeName, resourceLabel))
+		},
+	})
+}
+
+// Build an instruction that emits a heap-type cast (`ref.test`/`ref.cast`/...), where the
+// mnemonic gains a `_nullable` suffix when `nullable` is true.
+function createHeapTypeCastInstruction(baseName: OpcodeName) {
+	return (heapTypeId: HeapType | string, nullable = false): Instruction => ({
+		opcodeName: (nullable ? `${baseName}_nullable` : baseName) as OpcodeName,
+		args: [heapTypeId, nullable],
+		immediatesEmitter: (encoder, context) => {
+			encoder.emitHeapType(heapTypeId, context)
+		},
+	})
+}
+
+// Thin, intent-revealing wrappers over `createNamedReferenceInstruction`.
+function createNamedLocalInstruction(opcodeName: OpcodeName, localName: string) {
+	return createNamedReferenceInstruction(opcodeName, 'localsLookup', 'local name')(localName)
 }
 
 function createNamedGlobalInstruction(opcodeName: OpcodeName, globalName: string) {
-	const instruction: Instruction = {
-		opcodeName,
-
-		args: [globalName],
-
-		immediatesEmitter: (encoder, context) => {
-			const globalIndex = context.globalsLookup.get(globalName)
-
-			if (globalIndex === undefined) {
-				throw new Error(`${opcodeName}: Couldn't resolve global '${globalName}'`)
-			}
-
-			encoder.emitUint(globalIndex)
-		}
-	}
-
-	return instruction
+	return createNamedReferenceInstruction(opcodeName, 'globalsLookup', 'global name')(globalName)
 }
 
 function createBlockInstruction(opcodeName: 'block' | 'loop') {
@@ -1759,13 +1512,13 @@ function createBlockInstruction(opcodeName: 'block' | 'loop') {
 	}
 }
 
-function createBranchInstruction(opcodeName: OpcodeName) {
+function createBranchInstruction(opcodeName: OpcodeName, stackKey: 'blockStack' | 'tryBlockStack' = 'blockStack') {
 	return (targetBlockName: string): Instruction => ({
 		opcodeName,
 		args: [targetBlockName],
 
 		immediatesEmitter: (encoder, context) => {
-			const blockIndex = context.blockStack.indexOf(targetBlockName)
+			const blockIndex = context[stackKey].indexOf(targetBlockName)
 
 			if (blockIndex < 0) {
 				throw new Error(`${opcodeName}: Couldn't resolve block name '${targetBlockName}'`)
@@ -1777,20 +1530,7 @@ function createBranchInstruction(opcodeName: OpcodeName) {
 }
 
 function createGCTypeInstruction(opcodeName: OpcodeName) {
-	return (typeName: string): Instruction => ({
-		opcodeName,
-		args: [typeName],
-
-		immediatesEmitter: (encoder, context) => {
-			const typeIndex = context.typesLookup.get(typeName)
-
-			if (typeIndex === undefined) {
-				throw new Error(`${opcodeName}: Couldn't resolve type name '${typeName}'`)
-			}
-
-			encoder.emitUint(typeIndex)
-		}
-	})
+	return createNamedReferenceInstruction(opcodeName, 'typesLookup', 'type name')
 }
 
 function createGCTypeInstructionWithFieldIndex(opcodeName: OpcodeName) {
@@ -1812,37 +1552,11 @@ function createGCTypeInstructionWithFieldIndex(opcodeName: OpcodeName) {
 }
 
 function createTableInstruction(opcodeName: OpcodeName) {
-	return (tableName: string): Instruction => ({
-		opcodeName,
-		args: [tableName],
-
-		immediatesEmitter: (encoder, context) => {
-			const tableIndex = context.tablesLookup.get(tableName)
-
-			if (tableIndex === undefined) {
-				throw new Error(`${opcodeName}: Couldn't resolve table name '${tableName}'`)
-			}
-
-			encoder.emitUint(tableIndex)
-		}
-	})
+	return createNamedReferenceInstruction(opcodeName, 'tablesLookup', 'table name')
 }
 
 function createMemoryInstruction(opcodeName: OpcodeName) {
-	return (memoryName: string): Instruction => ({
-		opcodeName,
-		args: [memoryName],
-
-		immediatesEmitter: (encoder, context) => {
-			const memoryIndex = context.memoriesLookup.get(memoryName)
-
-			if (memoryIndex === undefined) {
-				throw new Error(`${opcodeName}: Couldn't resolve memory name '${memoryName}'`)
-			}
-
-			encoder.emitUint(memoryIndex)
-		}
-	})
+	return createNamedReferenceInstruction(opcodeName, 'memoriesLookup', 'memory name')
 }
 
 function createMemoryReadWriteInstruction(opcodeName: OpcodeName) {
@@ -1941,5 +1655,4 @@ export interface TryTableOptions {
 	name?: string
 	handlers: TryHandler[]
 }
-
 
