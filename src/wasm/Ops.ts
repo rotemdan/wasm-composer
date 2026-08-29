@@ -8,6 +8,8 @@ export const Op = {
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	unreachable: createSimpleInstruction('unreachable'),
 	nop: createSimpleInstruction('nop'),
+	// NOTE: NOT part of the WASM 3.0 core. This is a Chromium-internal test hook
+	// (0x16 is "reserved" in the spec). Kept only for testing/development. See Opcodes.ts.
 	nop_for_testing: createSimpleInstruction('nop_for_testing'),
 
 	block: createBlockInstruction('block'),
@@ -266,6 +268,7 @@ export const Op = {
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// WasmFX proposal instructions (delimited continuations)
+	// NOT part of the WASM 3.0 core. Source of truth: Opcodes.ts (WasmFX group).
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	cont: {
 		new: createSimpleInstruction('cont.new'),
@@ -277,9 +280,6 @@ export const Op = {
 	resume_throw: createSimpleInstruction('resume_throw'),
 	resume_throw_ref: createSimpleInstruction('resume_throw_ref'),
 	switch: createSimpleInstruction('switch'),
-
-	br_on_cast_desc_eq: createBranchOnCastInstruction('br_on_cast_desc_eq'),
-	br_on_cast_desc_eq_fail: createBranchOnCastInstruction('br_on_cast_desc_eq_fail'),
 
 	call: (functionName: string): Instruction => ({
 		opcodeName: 'call',
@@ -429,6 +429,8 @@ export const Op = {
 
 		i31: createSimpleInstruction('ref.i31'),
 
+		// NOTE: NOT part of the WASM 3.0 core. Custom Descriptors proposal: descriptor-based
+		// i31/shared reference variants and descriptor-equality casts. See Opcodes.ts.
 		i31_shared: createSimpleInstruction('ref.i31_shared'),
 		get_desc: createSimpleInstruction('ref.get_desc'),
 		cast_desc_eq: (heapTypeId: HeapType | string, nullable: boolean): Instruction => ({
@@ -455,6 +457,11 @@ export const Op = {
 				encoder.emitHeapType(heapTypeId, context)
 			}
 		}),
+
+		// NOTE: These two belong to the Custom Descriptors proposal (per Opcodes.ts),
+		// moved here from the WasmFX block for correct proposal grouping.
+		br_on_cast_desc_eq: createBranchOnCastInstruction('br_on_cast_desc_eq'),
+		br_on_cast_desc_eq_fail: createBranchOnCastInstruction('br_on_cast_desc_eq_fail'),
 	},
 
 	struct: {
@@ -468,6 +475,8 @@ export const Op = {
 		get_u: createGCTypeInstructionWithFieldIndex('struct.get_u'),
 		set: createGCTypeInstructionWithFieldIndex('struct.set'),
 
+		// NOTE: NOT part of the WASM 3.0 core. GC atomics / Shared-Everything threads
+		// proposal: wait on a struct field plus atomic field read-modify-write. See Opcodes.ts.
 		wait: createSimpleInstruction('struct.wait'),
 
 		atomic: {
@@ -616,6 +625,8 @@ export const Op = {
 			}
 		}),
 
+		// NOTE: NOT part of the WASM 3.0 core. GC atomics / Shared-Everything threads
+		// proposal: atomic operations on array elements. See Opcodes.ts.
 		atomic: {
 			get: createGCTypeInstruction('array.atomic.get'),
 			get_s: createGCTypeInstruction('array.atomic.get_s'),
@@ -650,7 +661,10 @@ export const Op = {
 	drop: createSimpleInstruction('drop'),
 	select: (valueTypes?: ValueType[]): Instruction => {
 		const instruction: Instruction = {
-			opcodeName: valueTypes === undefined ? 'select' : 'select_with_type',
+			// NOTE: `select_with_type` is NOT an official WASM 3.0 mnemonic (the name is
+		// provisional, flagged [TEMP] in Opcodes.ts). It is the typed (result-type-
+		// carrying) variant of `select` at opcode 0x1c.
+		opcodeName: valueTypes === undefined ? 'select' : 'select_with_type',
 			args: [valueTypes],
 
 			immediatesEmitter: (encoder) => {
@@ -815,6 +829,8 @@ export const Op = {
 	atomic: {
 		fence: createSimpleInstruction('atomic.fence'),
 
+		// NOTE: NOT part of the WASM 3.0 core. GC atomics / Shared-Everything threads
+		// proposal: `pause` and wait-queue operations. (atomic.fence above IS core.)
 		pause: createSimpleInstruction('pause'),
 
 		waitqueue: {
@@ -1016,6 +1032,8 @@ export const Op = {
 		extend16_s: createSimpleInstruction('i64.extend16_s'),
 		extend32_s: createSimpleInstruction('i64.extend32_s'),
 
+		// NOTE: NOT part of the WASM 3.0 core. Numeric wide arithmetic proposal
+		// (128-bit i64 add/sub and full-width i64 x i64 multiply). See Opcodes.ts.
 		add128: createSimpleInstruction('i64.add128'),
 		sub128: createSimpleInstruction('i64.sub128'),
 		mul_wide_s: createSimpleInstruction('i64.mul_wide_s'),
@@ -1287,7 +1305,8 @@ export const Op = {
 		max_u: createSimpleInstruction('i8x16.max_u'),
 		avgr_u: createSimpleInstruction('i8x16.avgr_u'),
 
-		// Relaxed SIMD
+		// NOTE: NOT part of the WASM 3.0 core. Relaxed SIMD proposal
+		// (deterministic-except-for-ordering helpers). See Opcodes.ts.
 		relaxed_swizzle: createSimpleInstruction('i8x16.relaxed_swizzle'),
 		relaxed_laneselect: createSimpleInstruction('i8x16.relaxed_laneselect'),
 	},
@@ -1350,11 +1369,12 @@ export const Op = {
 		extmul_low_i8x16_u: createSimpleInstruction('i16x8.extmul_low_i8x16_u'),
 		extmul_high_i8x16_u: createSimpleInstruction('i16x8.extmul_high_i8x16_u'),
 
-		// Relaxed SIMD
+		// NOTE: NOT part of the WASM 3.0 core. Relaxed SIMD proposal. See Opcodes.ts.
 		relaxed_laneselect: createSimpleInstruction('i16x8.relaxed_laneselect'),
 		dot_i8x16_i7x16_s: createSimpleInstruction('i16x8.dot_i8x16_i7x16_s'),
 		relaxed_q15mulr_s: createSimpleInstruction('i16x8.relaxed_q15mulr_s'),
 
+		// NOTE: NOT part of the WASM 3.0 core. Float16 SIMD proposal. See Opcodes.ts.
 		trunc_sat_f16x8_s: createSimpleInstruction('i16x8.trunc_sat_f16x8_s'),
 		trunc_sat_f16x8_u: createSimpleInstruction('i16x8.trunc_sat_f16x8_u'),
 	},
@@ -1413,7 +1433,7 @@ export const Op = {
 		trunc_sat_f64x2_s_zero: createSimpleInstruction('i32x4.trunc_sat_f64x2_s_zero'),
 		trunc_sat_f64x2_u_zero: createSimpleInstruction('i32x4.trunc_sat_f64x2_u_zero'),
 
-		// Relaxed SIMD
+		// NOTE: NOT part of the WASM 3.0 core. Relaxed SIMD proposal. See Opcodes.ts.
 		relaxed_trunc_f32x4_s: createSimpleInstruction('i32x4.relaxed_trunc_f32x4_s'),
 		relaxed_trunc_f32x4_u: createSimpleInstruction('i32x4.relaxed_trunc_f32x4_u'),
 		relaxed_trunc_f64x2_s_zero: createSimpleInstruction('i32x4.relaxed_trunc_f64x2_s_zero'),
@@ -1462,7 +1482,7 @@ export const Op = {
 		extmul_low_i32x4_u: createSimpleInstruction('i64x2.extmul_low_i32x4_u'),
 		extmul_high_i32x4_u: createSimpleInstruction('i64x2.extmul_high_i32x4_u'),
 
-		// Relaxed SIMD
+		// NOTE: NOT part of the WASM 3.0 core. Relaxed SIMD proposal. See Opcodes.ts.
 		relaxed_laneselect: createSimpleInstruction('i64x2.relaxed_laneselect'),
 	},
 
@@ -1502,9 +1522,11 @@ export const Op = {
 		convert_i32x4_u: createSimpleInstruction('f32x4.convert_i32x4_u'),
 		demote_f64x2_zero: createSimpleInstruction('f32x4.demote_f64x2_zero'),
 
+		// NOTE: NOT part of the WASM 3.0 core. Float16 SIMD proposal
+		// (promotes the low f16x8 lane into an f32x4). See Opcodes.ts.
 		promote_low_f16x8: createSimpleInstruction('f32x4.promote_low_f16x8'),
 
-		// Relaxed SIMD
+		// NOTE: NOT part of the WASM 3.0 core. Relaxed SIMD proposal. See Opcodes.ts.
 		qfma: createSimpleInstruction('f32x4.qfma'),
 		qfms: createSimpleInstruction('f32x4.qfms'),
 		relaxed_min: createSimpleInstruction('f32x4.relaxed_min'),
@@ -1547,7 +1569,7 @@ export const Op = {
 		convert_low_i32x4_u: createSimpleInstruction('f64x2.convert_low_i32x4_u'),
 		promote_low_f32x4: createSimpleInstruction('f64x2.promote_low_f32x4'),
 
-		// Relaxed SIMD
+		// NOTE: NOT part of the WASM 3.0 core. Relaxed SIMD proposal. See Opcodes.ts.
 		qfma: createSimpleInstruction('f64x2.qfma'),
 		qfms: createSimpleInstruction('f64x2.qfms'),
 		relaxed_min: createSimpleInstruction('f64x2.relaxed_min'),
@@ -1556,6 +1578,7 @@ export const Op = {
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// 8 16-bit floating point SIMD instructions (Float16 SIMD proposal)
+	// NOT part of the WASM 3.0 core. See Opcodes.ts.
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	f16x8: {
 		splat: createSimpleInstruction('f16x8.splat'),
@@ -1600,7 +1623,7 @@ export const Op = {
 	},
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
-	// String references proposal instructions
+	// String references proposal instructions (NOT part of the WASM 3.0 core)
 	////////////////////////////////////////////////////////////////////////////////////////////////
 	// NOTE: The stringref proposal opcodes are emitted as opcode-only instructions
 	// (no immediates). The proposal's immediate encodings are still in flux; extend
