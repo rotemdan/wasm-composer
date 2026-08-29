@@ -4,7 +4,6 @@ import { encodeUtf8, float32ToBytes, float64ToBytes } from '../utilities/Utiliti
 import { DynamicNumericArray } from '../utilities/DynamicArray.js'
 import { Op } from './Ops.js'
 import { createDynamicUint8Array } from '../utilities/DynamicUint8Array.js'
-import { createDynamicNumberArray } from '../utilities/DynamicNumberArray.js'
 
 export function encodeWasmModule(moduleDefinition: WasmModuleDefinition) {
 	const encoder = createWasmEncoder()
@@ -19,7 +18,6 @@ export function createWasmEncoder() {
 
 export class WasmEncoder {
 	private outputBytes: DynamicNumericArray = createDynamicUint8Array(1024)
-	//private outputBytes: DynamicNumericArray = createDynamicNumberArray()
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Full module emitter
@@ -684,6 +682,7 @@ export class WasmEncoder {
 		this.emitUint(flattenedInstructions.length)
 
 		this.emitFlattenedInstructions(flattenedInstructions, context)
+
 		// Each element value is an expression and must be terminated by `end` (0x0B).
 		this.emitInstruction(Op.end, context)
 	}
@@ -1023,7 +1022,6 @@ export class WasmEncoder {
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Private utilities
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
-
 	private getElementDefinitionsForRefFuncTargets(refFuncTargets: Set<string>, globalInstructionContext: InstructionContext) {
 		const elementDefinitions: ElementEntry[] = []
 
@@ -1548,6 +1546,38 @@ export const enum ElementEntryType {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
+// Opcode predicates
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Control-flow opcode categories used by the flattening logic. Frames are label-defining
+// blocks. Clauses (`else`/`catch`/`catch_all`/`delegate`) belong to a preceding frame.
+// Centralising them as predicates (instead of duplicated inline comparisons or one-off sets)
+// gives every check a single source of truth that is reused below.
+function isIfClauseOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'else'
+}
+
+function isCatchClauseOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'catch' || opcodeName === 'catch_all'
+}
+
+function isTryContinuationOpcode(opcodeName: OpcodeName): boolean {
+	return isCatchClauseOpcode(opcodeName) || opcodeName === 'delegate'
+}
+
+function isClauseOpcode(opcodeName: OpcodeName): boolean {
+	return isIfClauseOpcode(opcodeName) || isTryContinuationOpcode(opcodeName)
+}
+
+function isFrameOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'block' || opcodeName === 'loop' || opcodeName === 'if' || opcodeName === 'try' || opcodeName === 'try_table'
+}
+
+function isTryFrameOpcode(opcodeName: OpcodeName): boolean {
+	return opcodeName === 'try' || opcodeName === 'try_table'
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 // Instruction types
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 export type Instructions = (Instruction | Instructions)[]
@@ -1585,34 +1615,6 @@ export function isBlockInstruction(instruction: Instruction): instruction is Blo
 	return Array.isArray((instruction as BlockInstruction).bodyInstructions)
 }
 
-// Control-flow opcode categories used by the flattening logic. Frames are label-defining
-// blocks; clauses (`else`/`catch`/`catch_all`/`delegate`) belong to a preceding frame.
-// Centralising them as predicates (instead of duplicated inline comparisons or one-off sets)
-// gives every check a single source of truth that is reused below.
-function isIfClauseOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'else'
-}
-
-function isCatchClauseOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'catch' || opcodeName === 'catch_all'
-}
-
-function isTryContinuationOpcode(opcodeName: OpcodeName): boolean {
-	return isCatchClauseOpcode(opcodeName) || opcodeName === 'delegate'
-}
-
-function isClauseOpcode(opcodeName: OpcodeName): boolean {
-	return isIfClauseOpcode(opcodeName) || isTryContinuationOpcode(opcodeName)
-}
-
-function isFrameOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'block' || opcodeName === 'loop' || opcodeName === 'if' || opcodeName === 'try' || opcodeName === 'try_table'
-}
-
-function isTryFrameOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'try' || opcodeName === 'try_table'
-}
-
 export type ImmediatesEmitterFunc = (emitter: WasmEncoder, context: InstructionContext) => void
 
 export interface InstructionContext {
@@ -1625,7 +1627,7 @@ export interface InstructionContext {
 	elementsLookup: Map<string, number>
 	dataLookup: Map<string, number>
 	tagsLookup: Map<string, number>
-	
+
 	blockStack: string[]
 
 	// Stack of *try* block names only (no `if`/`loop`/`block`/`else`/`catch`).
