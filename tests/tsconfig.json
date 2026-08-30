@@ -2,16 +2,14 @@
 	// Type-checks the test files only, without emitting anything.
 	// Test code is run by vitest (which transpiles on the fly) — the tests
 	// are dev-only and must never end up in ./dist or the published package.
-	"extends": "./tsconfig.json",
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"noEmit": true,
-		// Test files are run directly by node (type-stripping) and vitest, and import
-		// the library sources from ./src, so .ts import extensions are required.
+		// The tests import the library sources directly from ../src.
 		"allowImportingTsExtensions": true,
-		// The tests import the library sources directly from ./src
-		"rootDir": "."
+		"rootDir": ".."
 	},
 	"include": [
-		"tests"
+		"**/*.ts"
 	]
 }
