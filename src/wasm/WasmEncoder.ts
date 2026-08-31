@@ -679,14 +679,18 @@ export class WasmEncoder {
 	// Instruction emitters
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	emitLengthPrefixedInstructionsArray(instructionsArray: Instructions, context: InstructionContext) {
-		const flattenedInstructions = WasmEncoder.flattenInstructions(instructionsArray)
+		// Each top-level item of `instructionsArray` is ONE element expression: vec(expr) requires
+		// the vec length to be the number of expressions (not the number of flattened instructions),
+		// and every expression must be terminated by its own `end` (0x0B).
+		this.emitUnsignedLeb128(instructionsArray.length)
 
-		this.emitUnsignedLeb128(flattenedInstructions.length)
+		for (const elementInstructions of instructionsArray) {
+			const flattenedInstructions = WasmEncoder.flattenInstructions(Array.isArray(elementInstructions) ? elementInstructions : [elementInstructions])
 
-		this.emitFlattenedInstructions(flattenedInstructions, context)
+			this.emitFlattenedInstructions(flattenedInstructions, context)
 
-		// Each element value is an expression and must be terminated by `end` (0x0B).
-		this.emitInstruction(Op.end, context)
+			this.emitInstruction(Op.end, context)
+		}
 	}
 
 	emitInstructions(instructions: Instructions, context: InstructionContext) {

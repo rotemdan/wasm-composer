@@ -499,8 +499,11 @@ export const Op = {
 				const tableIndex = resolveIndex(context.tablesLookup, tableName, 'table.init', 'table name')
 				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'table.init', 'element name')
 
-				encoder.emitUnsignedLeb128(tableIndex)
+				// Binary layout is `0xFC 12 y:elemidx x:tableidx`, i.e. the element segment index
+				// is emitted BEFORE the table index (the two operands are swapped relative to the
+				// `table.init x y` mnemonic order).
 				encoder.emitUnsignedLeb128(elementIndex)
+				encoder.emitUnsignedLeb128(tableIndex)
 			}
 		}),
 		copy: (sourceTableName: string, targetTableName: string): Instruction => ({
@@ -1562,13 +1565,48 @@ function createMemoryInstruction(opcodeName: OpcodeName) {
 function createMemoryReadWriteInstruction(opcodeName: OpcodeName) {
 	// `offset` may be `bigint` for memory64, where the memarg offset immediate is
 	// encoded as a 64-bit unsigned integer.
-	return (align: number, offset: number | bigint) =>
-		createSimpleInstruction(opcodeName, [align, offset])
+	//
+	// An optional `memoryName` targets a memory other than memory 0 (multi-memory):
+	// per the binary spec, bit 6 of the memarg alignment field signals that a memory
+	// index immediately follows the alignment, before the offset.
+	return (align: number, offset: number | bigint, memoryName?: string): Instruction => ({
+		opcodeName,
+		args: [align, offset, memoryName],
+
+		immediatesEmitter: (encoder, context) => {
+			if (memoryName !== undefined) {
+				const memoryIndex = resolveIndex(context.memoriesLookup, memoryName, opcodeName, 'memory name')
+
+				encoder.emitUnsignedLeb128(align | 0x40)
+				encoder.emitUnsignedLeb128(memoryIndex)
+			} else {
+				encoder.emitUnsignedLeb128(align)
+			}
+
+			encoder.emitUnsignedLeb128(offset)
+		}
+	})
 }
 
 function createMemoryReadWriteInstructionWithLane(opcodeName: OpcodeName) {
-	return (align: number, offset: number | bigint, laneIndex: number) =>
-		createSimpleInstruction(opcodeName, [align, offset, laneIndex])
+	return (align: number, offset: number | bigint, laneIndex: number, memoryName?: string): Instruction => ({
+		opcodeName,
+		args: [align, offset, laneIndex, memoryName],
+
+		immediatesEmitter: (encoder, context) => {
+			if (memoryName !== undefined) {
+				const memoryIndex = resolveIndex(context.memoriesLookup, memoryName, opcodeName, 'memory name')
+
+				encoder.emitUnsignedLeb128(align | 0x40)
+				encoder.emitUnsignedLeb128(memoryIndex)
+			} else {
+				encoder.emitUnsignedLeb128(align)
+			}
+
+			encoder.emitUnsignedLeb128(offset)
+			encoder.emitUnsignedLeb128(laneIndex)
+		}
+	})
 }
 
 function createBranchOnCastInstruction(opcodeName: OpcodeName) {
