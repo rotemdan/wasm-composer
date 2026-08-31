@@ -1,6 +1,6 @@
 import { OpcodeName } from './Opcodes.js'
 import { isArray, isBigInt, isString } from '../utilities/Utilities.js'
-import { BlockInstruction, emptyType, HeapType, ImmediateType, Instruction, ValueType } from './WasmEncoder.js'
+import { Instruction, BlockInstruction, HeapType, ImmediateType, ValueType } from './Types.js'
 
 export const Op = {
 	////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +118,7 @@ export const Op = {
 					throw new Error(`catch: Couldn't resolve tag name '${tagName}'`)
 				}
 
-				encoder.emitUint(tagIndex)
+				encoder.emitUnsignedLeb128(tagIndex)
 			},
 
 			blockName,
@@ -150,7 +150,7 @@ export const Op = {
 
 				const handlers = options.handlers
 
-				encoder.emitUint(handlers.length)
+				encoder.emitUnsignedLeb128(handlers.length)
 
 				for (const handler of handlers) {
 					if (handler.kind === 'catch_all') {
@@ -166,7 +166,7 @@ export const Op = {
 							throw new Error(`try_table: Couldn't resolve tag name '${handler.tagName}'`)
 						}
 
-						encoder.emitUint(tagIndex)
+						encoder.emitUnsignedLeb128(tagIndex)
 					}
 
 					const labelIndex = context.blockStack.indexOf(handler.labelName)
@@ -175,7 +175,7 @@ export const Op = {
 						throw new Error(`try_table: Couldn't resolve label name '${handler.labelName}'`)
 					}
 
-					encoder.emitUint(labelIndex)
+					encoder.emitUnsignedLeb128(labelIndex)
 				}
 			},
 
@@ -210,7 +210,7 @@ export const Op = {
 			}
 
 			encoder.emitLengthPrefixedUintArray(blockIndexes)
-			encoder.emitUint(defaultBlockIndex)
+			encoder.emitUnsignedLeb128(defaultBlockIndex)
 		}
 	}),
 
@@ -245,8 +245,8 @@ export const Op = {
 			const typeIndex = resolveIndex(context.typesLookup, typeName, 'call_indirect', 'type name')
 			const tableIndex = resolveIndex(context.tablesLookup, tableName, 'call_indirect', 'table name')
 
-			encoder.emitUint(typeIndex)
-			encoder.emitUint(tableIndex)
+			encoder.emitUnsignedLeb128(typeIndex)
+			encoder.emitUnsignedLeb128(tableIndex)
 		}
 	}),
 	call_ref: createNamedReferenceInstruction('call_ref', 'typesLookup', 'type name'),
@@ -259,8 +259,8 @@ export const Op = {
 			const typeIndex = resolveIndex(context.typesLookup, typeName, 'return_call_indirect', 'type name')
 			const tableIndex = resolveIndex(context.tablesLookup, tableName, 'return_call_indirect', 'table name')
 
-			encoder.emitUint(typeIndex)
-			encoder.emitUint(tableIndex)
+			encoder.emitUnsignedLeb128(typeIndex)
+			encoder.emitUnsignedLeb128(tableIndex)
 		}
 	}),
 	return_call_ref: createNamedReferenceInstruction('return_call_ref', 'typesLookup', 'type name'),
@@ -347,8 +347,8 @@ export const Op = {
 			immediatesEmitter: (encoder, context) => {
 				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.new_fixed', 'type name')
 
-				encoder.emitUint(typeIndex)
-				encoder.emitUint(arrayLength)
+				encoder.emitUnsignedLeb128(typeIndex)
+				encoder.emitUnsignedLeb128(arrayLength)
 			}
 		}),
 		new_data: (typeName: string, dataEntryName: string): Instruction => ({
@@ -359,8 +359,8 @@ export const Op = {
 				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.new_data', 'type name')
 				const dataEntryIndex = resolveIndex(context.dataLookup, dataEntryName, 'array.new_data', 'data entry name')
 
-				encoder.emitUint(typeIndex)
-				encoder.emitUint(dataEntryIndex)
+				encoder.emitUnsignedLeb128(typeIndex)
+				encoder.emitUnsignedLeb128(dataEntryIndex)
 			}
 		}),
 		new_elem: (typeName: string, elementName: string): Instruction => ({
@@ -371,8 +371,8 @@ export const Op = {
 				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.new_elem', 'type name')
 				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'array.new_elem', 'element name')
 
-				encoder.emitUint(typeIndex)
-				encoder.emitUint(elementIndex)
+				encoder.emitUnsignedLeb128(typeIndex)
+				encoder.emitUnsignedLeb128(elementIndex)
 			}
 		}),
 
@@ -388,8 +388,8 @@ export const Op = {
 				const destTypeIndex = resolveIndex(context.typesLookup, destTypeName, 'array.copy', 'destination type name')
 				const sourceTypeIndex = resolveIndex(context.typesLookup, sourceTypeName, 'array.copy', 'source type name')
 
-				encoder.emitUint(destTypeIndex)
-				encoder.emitUint(sourceTypeIndex)
+				encoder.emitUnsignedLeb128(destTypeIndex)
+				encoder.emitUnsignedLeb128(sourceTypeIndex)
 			}
 		}),
 		len: createSimpleInstruction('array.len'),
@@ -402,8 +402,8 @@ export const Op = {
 				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.init_data', 'type name')
 				const dataEntryIndex = resolveIndex(context.dataLookup, dataEntryName, 'array.init_data', 'data entry name')
 
-				encoder.emitUint(typeIndex)
-				encoder.emitUint(dataEntryIndex)
+				encoder.emitUnsignedLeb128(typeIndex)
+				encoder.emitUnsignedLeb128(dataEntryIndex)
 			}
 		}),
 		init_elem: (typeName: string, elementName: string): Instruction => ({
@@ -414,8 +414,8 @@ export const Op = {
 				const typeIndex = resolveIndex(context.typesLookup, typeName, 'array.init_elem', 'type name')
 				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'array.init_elem', 'element name')
 
-				encoder.emitUint(typeIndex)
-				encoder.emitUint(elementIndex)
+				encoder.emitUnsignedLeb128(typeIndex)
+				encoder.emitUnsignedLeb128(elementIndex)
 			}
 		}),
 
@@ -499,8 +499,8 @@ export const Op = {
 				const tableIndex = resolveIndex(context.tablesLookup, tableName, 'table.init', 'table name')
 				const elementIndex = resolveIndex(context.elementsLookup, elementName, 'table.init', 'element name')
 
-				encoder.emitUint(tableIndex)
-				encoder.emitUint(elementIndex)
+				encoder.emitUnsignedLeb128(tableIndex)
+				encoder.emitUnsignedLeb128(elementIndex)
 			}
 		}),
 		copy: (sourceTableName: string, targetTableName: string): Instruction => ({
@@ -514,8 +514,8 @@ export const Op = {
 				// Binary layout is `table.copy x1 x2` where x1 is the destination table and
 				// x2 is the source table (consistent with `memory.copy`), so we emit the
 				// target (destination) index before the source index.
-				encoder.emitUint(targetTableIndex)
-				encoder.emitUint(sourceTableIndex)
+				encoder.emitUnsignedLeb128(targetTableIndex)
+				encoder.emitUnsignedLeb128(sourceTableIndex)
 			}
 		}),
 		grow: createTableInstruction('table.grow'),
@@ -542,8 +542,8 @@ export const Op = {
 				const dataEntryIndex = resolveIndex(context.dataLookup, dataEntryName, 'memory.init', 'data entry name')
 
 				// Binary layout emits the data segment index before the memory index.
-				encoder.emitUint(dataEntryIndex)
-				encoder.emitUint(memoryIndex)
+				encoder.emitUnsignedLeb128(dataEntryIndex)
+				encoder.emitUnsignedLeb128(memoryIndex)
 			}
 		}),
 		copy: (memory1Name: string, memory2Name: string): Instruction => ({
@@ -554,8 +554,8 @@ export const Op = {
 				const memory1Index = resolveIndex(context.memoriesLookup, memory1Name, 'memory.copy', 'memory 1 name')
 				const memory2Index = resolveIndex(context.memoriesLookup, memory2Name, 'memory.copy', 'memory 2 name')
 
-				encoder.emitUint(memory1Index)
-				encoder.emitUint(memory2Index)
+				encoder.emitUnsignedLeb128(memory1Index)
+				encoder.emitUnsignedLeb128(memory2Index)
 			}
 		}),
 		fill: createMemoryInstruction('memory.fill'),
@@ -603,7 +603,7 @@ export const Op = {
 					value |= 0
 				}
 
-				encoder.emitInt(value)
+				encoder.emitSignedLeb128(value)
 			}
 		}),
 
@@ -715,7 +715,7 @@ export const Op = {
 					value = BigInt.asIntN(64, value)
 				}
 
-				encoder.emitInt(value)
+				encoder.emitSignedLeb128(value)
 			},
 		}),
 
@@ -1457,7 +1457,7 @@ function createNamedReferenceInstruction(
 		opcodeName,
 		args: [name],
 		immediatesEmitter: (encoder, context) => {
-			encoder.emitUint(resolveIndex(context[lookupKey], name, opcodeName, resourceLabel))
+			encoder.emitUnsignedLeb128(resolveIndex(context[lookupKey], name, opcodeName, resourceLabel))
 		},
 	})
 }
@@ -1524,7 +1524,7 @@ function createBranchInstruction(opcodeName: OpcodeName, stackKey: 'blockStack' 
 				throw new Error(`${opcodeName}: Couldn't resolve block name '${targetBlockName}'`)
 			}
 
-			encoder.emitUint(blockIndex)
+			encoder.emitUnsignedLeb128(blockIndex)
 		},
 	})
 }
@@ -1545,8 +1545,8 @@ function createGCTypeInstructionWithFieldIndex(opcodeName: OpcodeName) {
 				throw new Error(`${opcodeName}: Couldn't resolve type name '${typeName}'`)
 			}
 
-			encoder.emitUint(typeIndex)
-			encoder.emitUint(fieldIndex)
+			encoder.emitUnsignedLeb128(typeIndex)
+			encoder.emitUnsignedLeb128(fieldIndex)
 		}
 	})
 }
@@ -1586,7 +1586,7 @@ function createBranchOnCastInstruction(opcodeName: OpcodeName) {
 			const flags = Number(branchOnType1Null) | (Number(branchOnType2Null) << 1)
 
 			encoder.emitByte(flags)
-			encoder.emitUint(blockIndex)
+			encoder.emitUnsignedLeb128(blockIndex)
 			encoder.emitHeapType(type1, context)
 			encoder.emitHeapType(type2, context)
 		}
@@ -1602,7 +1602,7 @@ function createSimpleInstruction(opcodeName: OpcodeName, immediates?: ImmediateT
 
 		immediatesEmitter: (encoder) => {
 			for (const immediate of immediates) {
-				encoder.emitUint(immediate)
+				encoder.emitUnsignedLeb128(immediate)
 			}
 		},
 	}

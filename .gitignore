@@ -3,6 +3,5 @@ node_modules
 unused
 dist
 out
-reference-data
-docs
-src/tests/vitest/scratch
+spec
+

@@ -4,6 +4,8 @@ import { encodeUtf8, float32ToBytes, float64ToBytes } from '../utilities/Utiliti
 import { DynamicNumericArray } from '../utilities/DynamicArray.js'
 import { Op } from './Ops.js'
 import { createDynamicUint8Array } from '../utilities/DynamicUint8Array.js'
+import { WasmModuleDefinition, ExportEntry, InstructionContext, FunctionSignature, Subtype, SubtypeOrRecursiveType, RecursiveType, CompositeType, ImportEntry, FunctionDefinition, TableEntry, MemoryEntry, GlobalEntry, StartEntry, TagEntry, ElementEntry, ElementEntryType, DataEntry, DataEntryType, CustomSection, Instructions, Instruction, Limits, GlobalType, StructType, HeapType, emptyType, ReferenceType, ReferenceTypeKind, ExportKind, ImportKind, preamble, SectionId, StorageType, ValueType } from './Types.js'
+import { isRecursiveType, isArrayType, isStructType, isFunctionSignature, isClauseOpcode, isTryContinuationOpcode, isFrameOpcode, isTryFrameOpcode, isCatchClauseOpcode, isIfClauseOpcode, isBlockInstruction } from './Predicates.js'
 
 export function encodeWasmModule(moduleDefinition: WasmModuleDefinition) {
 	const encoder = createWasmEncoder()
@@ -30,11 +32,11 @@ export class WasmEncoder {
 
 		// Imported symbols occupy index space before the defined ones, so defined
 		// symbols must be offset by the number of imported symbols of the same kind.
-		const functionImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Function).length
-		const tableImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Table).length
-		const memoryImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Memory).length
-		const globalImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Global).length
-		const tagImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Tag).length
+		const functionsImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Function).length
+		const tablesImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Table).length
+		const memoriesImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Memory).length
+		const globalsImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Global).length
+		const tagsImportCount = importDefinitions.filter(e => e.description.type === ImportKind.Tag).length
 
 		const tablesDefinitions = moduleDefinition.tables ?? []
 		const memoriesDefinitions = moduleDefinition.memories ?? []
@@ -43,7 +45,7 @@ export class WasmEncoder {
 		const startDefinition = moduleDefinition.start
 		const elementsDefinitions = moduleDefinition.elements ?? []
 		const dataDefinitions = moduleDefinition.data ?? []
-		const tagDefinitions = moduleDefinition.tags ?? []
+		const tagsDefinitions = moduleDefinition.tags ?? []
 		const customSections = moduleDefinition.customSections ?? []
 
 		// Extract function signatures, entries, and code entries
@@ -67,25 +69,25 @@ export class WasmEncoder {
 		// `Op.table.get(importedName)`). They occupy the leading indices of their kind's index
 		// space, so each kind is numbered from zero independently.
 		{
-			let functionImportIndex = 0
-			let tableImportIndex = 0
-			let memoryImportIndex = 0
-			let globalImportIndex = 0
-			let tagImportIndex = 0
+			let functionsImportIndex = 0
+			let tablesImportIndex = 0
+			let memoriesImportIndex = 0
+			let globalsImportIndex = 0
+			let tagsImportIndex = 0
 
 			for (const entry of importDefinitions) {
 				const description = entry.description
 
 				if (description.type === ImportKind.Function) {
-					globalInstructionContext.functionsLookup.set(entry.importName, functionImportIndex++)
+					globalInstructionContext.functionsLookup.set(entry.importName, functionsImportIndex++)
 				} else if (description.type === ImportKind.Table) {
-					globalInstructionContext.tablesLookup.set(entry.importName, tableImportIndex++)
+					globalInstructionContext.tablesLookup.set(entry.importName, tablesImportIndex++)
 				} else if (description.type === ImportKind.Memory) {
-					globalInstructionContext.memoriesLookup.set(entry.importName, memoryImportIndex++)
+					globalInstructionContext.memoriesLookup.set(entry.importName, memoriesImportIndex++)
 				} else if (description.type === ImportKind.Global) {
-					globalInstructionContext.globalsLookup.set(entry.importName, globalImportIndex++)
+					globalInstructionContext.globalsLookup.set(entry.importName, globalsImportIndex++)
 				} else if (description.type === ImportKind.Tag) {
-					globalInstructionContext.tagsLookup.set(entry.importName, tagImportIndex++)
+					globalInstructionContext.tagsLookup.set(entry.importName, tagsImportIndex++)
 				}
 			}
 		}
@@ -99,14 +101,14 @@ export class WasmEncoder {
 		// Add functions, table entries, memories and globals that are marked as exported
 		// to an exports definition.
 		functionDefinitions.forEach((entry, index) => {
-			globalInstructionContext.functionsLookup.set(entry.name, functionImportCount + index)
+			globalInstructionContext.functionsLookup.set(entry.name, functionsImportCount + index)
 			globalInstructionContext.typesLookup.set(entry.name, index)
 
 			if (entry.export) {
 				exportsDefinitions.push({
 					name: entry.name,
 					kind: ExportKind.Function,
-					index: functionImportCount + index
+					index: functionsImportCount + index
 				})
 			}
 		})
@@ -142,25 +144,25 @@ export class WasmEncoder {
 		const functionTypes = functionSignatures.map(signature => ({ type: signature } as Subtype))
 
 		tablesDefinitions.forEach((entry, index) => {
-			globalInstructionContext.tablesLookup.set(entry.name, tableImportCount + index)
+			globalInstructionContext.tablesLookup.set(entry.name, tablesImportCount + index)
 
 			if (entry.export) {
 				exportsDefinitions.push({
 					name: entry.name,
 					kind: ExportKind.Table,
-					index: tableImportCount + index
+					index: tablesImportCount + index
 				})
 			}
 		})
 
 		globalsDefinitions.forEach((entry, index) => {
-			globalInstructionContext.globalsLookup.set(entry.name, globalImportCount + index)
+			globalInstructionContext.globalsLookup.set(entry.name, globalsImportCount + index)
 
 			if (entry.export) {
 				exportsDefinitions.push({
 					name: entry.name,
 					kind: ExportKind.Global,
-					index: globalImportCount + index
+					index: globalsImportCount + index
 				})
 			}
 		})
@@ -170,25 +172,25 @@ export class WasmEncoder {
 		})
 
 		memoriesDefinitions.forEach((entry, index) => {
-			globalInstructionContext.memoriesLookup.set(entry.name, memoryImportCount + index)
+			globalInstructionContext.memoriesLookup.set(entry.name, memoriesImportCount + index)
 
 			if (entry.export) {
 				exportsDefinitions.push({
 					name: entry.name,
 					kind: ExportKind.Memory,
-					index: memoryImportCount + index
+					index: memoriesImportCount + index
 				})
 			}
 		})
 
-		tagDefinitions.forEach((entry, index) => {
-			globalInstructionContext.tagsLookup.set(entry.name, tagImportCount + index)
+		tagsDefinitions.forEach((entry, index) => {
+			globalInstructionContext.tagsLookup.set(entry.name, tagsImportCount + index)
 
 			if (entry.export) {
 				exportsDefinitions.push({
 					name: entry.name,
 					kind: ExportKind.Tag,
-					index: tagImportCount + index
+					index: tagsImportCount + index
 				})
 			}
 		})
@@ -206,7 +208,7 @@ export class WasmEncoder {
 
 		this.emitMemoriesSection(memoriesDefinitions)
 
-		this.emitTagSection(tagDefinitions, globalInstructionContext)
+		this.emitTagsSection(tagsDefinitions, globalInstructionContext)
 
 		this.emitGlobalsSection(globalsDefinitions, globalInstructionContext)
 
@@ -265,7 +267,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(types.length)
+		sectionEncoder.emitUnsignedLeb128(types.length)
 
 		for (const type of types) {
 			sectionEncoder.emitSubtypeOrRecursiveType(type)
@@ -287,7 +289,7 @@ export class WasmEncoder {
 
 		this.emitByte(0x4e)
 
-		this.emitUint(subtypes.length)
+		this.emitUnsignedLeb128(subtypes.length)
 
 		for (const subtype of subtypes) {
 			this.emitSubtype(subtype)
@@ -303,7 +305,7 @@ export class WasmEncoder {
 			// Non-final subtype without supertypes must use 0x50 with an empty supertype vector.
 			// The bare comptype shorthand (form 3) is only valid for *final* subtypes without supertypes.
 			this.emitByte(0x50)
-			this.emitUint(0)
+			this.emitUnsignedLeb128(0)
 		}
 		// else: final subtype without supertypes (explicitly final, or `final` left
 		// unspecified, which defaults to final per the WASM text format) -> bare
@@ -342,7 +344,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(importEntries.length)
+		sectionEncoder.emitUnsignedLeb128(importEntries.length)
 
 		for (const entry of importEntries) {
 			const description = entry.description
@@ -352,7 +354,7 @@ export class WasmEncoder {
 			sectionEncoder.emitByte(description.type)
 
 			if (description.type === ImportKind.Function) {
-				sectionEncoder.emitUint(description.index)
+				sectionEncoder.emitUnsignedLeb128(description.index)
 			} else if (description.type === ImportKind.Table) {
 				sectionEncoder.emitTableEntry(description.tableEntry)
 			} else if (description.type === ImportKind.Memory) {
@@ -362,7 +364,7 @@ export class WasmEncoder {
 			} else if (description.type === ImportKind.Tag) {
 				// tagtype ::= 0x00 x : typeidx => x
 				sectionEncoder.emitByte(0x00)
-				sectionEncoder.emitUint(description.typeIndex)
+				sectionEncoder.emitUnsignedLeb128(description.typeIndex)
 			} else {
 				throw new TypeError(`Invalid import entry type ${(entry as ImportEntry).description.type}`)
 			}
@@ -403,7 +405,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(tableEntries.length)
+		sectionEncoder.emitUnsignedLeb128(tableEntries.length)
 
 		for (const entry of tableEntries) {
 			sectionEncoder.emitTableEntry(entry)
@@ -424,7 +426,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(memoryEntries.length)
+		sectionEncoder.emitUnsignedLeb128(memoryEntries.length)
 
 		for (const entry of memoryEntries) {
 			sectionEncoder.emitLimits(entry)
@@ -445,7 +447,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(globalEntries.length)
+		sectionEncoder.emitUnsignedLeb128(globalEntries.length)
 
 		for (const entry of globalEntries) {
 			sectionEncoder.emitGlobalType(entry)
@@ -467,12 +469,12 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(exportEntries.length)
+		sectionEncoder.emitUnsignedLeb128(exportEntries.length)
 
 		for (const entry of exportEntries) {
 			sectionEncoder.emitString(entry.name)
 			sectionEncoder.emitByte(entry.kind)
-			sectionEncoder.emitUint(entry.index)
+			sectionEncoder.emitUnsignedLeb128(entry.index)
 		}
 
 		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
@@ -484,13 +486,13 @@ export class WasmEncoder {
 	emitStartSection(startEntry: StartEntry) {
 		this.emitByte(SectionId.Start)
 
-		this.emitLengthPrefixedBytes(encodeUint(startEntry.functionIndex))
+		this.emitLengthPrefixedBytes(encodeUnsignedLeb128(startEntry.functionIndex))
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Tag section emitter
+	// Tags section emitter
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	emitTagSection(tagEntries: TagEntry[], instructionContext: InstructionContext) {
+	emitTagsSection(tagEntries: TagEntry[], instructionContext: InstructionContext) {
 		if (tagEntries.length === 0) {
 			return
 		}
@@ -499,7 +501,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(tagEntries.length)
+		sectionEncoder.emitUnsignedLeb128(tagEntries.length)
 
 		for (const entry of tagEntries) {
 			const typeIndex = instructionContext.typesLookup.get(entry.typeName)
@@ -510,7 +512,7 @@ export class WasmEncoder {
 
 			// tagtype ::= 0x00 x : typeidx => x
 			sectionEncoder.emitByte(0x00)
-			sectionEncoder.emitUint(typeIndex)
+			sectionEncoder.emitUnsignedLeb128(typeIndex)
 		}
 
 		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
@@ -528,7 +530,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(elementEntries.length)
+		sectionEncoder.emitUnsignedLeb128(elementEntries.length)
 
 		for (const entry of elementEntries) {
 			sectionEncoder.emitByte(entry.flags)
@@ -542,7 +544,7 @@ export class WasmEncoder {
 				sectionEncoder.emitByte(elementKind)
 				sectionEncoder.emitLengthPrefixedUintArray(entry.functionIndexes)
 			} else if (entry.flags === ElementEntryType.Active) { // 2
-				sectionEncoder.emitUint(entry.tableIndex)
+				sectionEncoder.emitUnsignedLeb128(entry.tableIndex)
 				sectionEncoder.emitExpression(entry.instructions, instructionContext)
 				sectionEncoder.emitByte(elementKind)
 				sectionEncoder.emitLengthPrefixedUintArray(entry.functionIndexes)
@@ -556,7 +558,7 @@ export class WasmEncoder {
 				sectionEncoder.emitReferenceType(entry.referenceType)
 				sectionEncoder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
 			} else if (entry.flags === ElementEntryType.ActiveWithInstructions) { // 6
-				sectionEncoder.emitUint(entry.tableIndex)
+				sectionEncoder.emitUnsignedLeb128(entry.tableIndex)
 				sectionEncoder.emitExpression(entry.instructions, instructionContext)
 				sectionEncoder.emitReferenceType(entry.referenceType)
 				sectionEncoder.emitLengthPrefixedInstructionsArray(entry.functionInstructions, instructionContext)
@@ -577,7 +579,7 @@ export class WasmEncoder {
 	emitDataCountSection(dataCount: number) {
 		this.emitByte(SectionId.DataCount)
 
-		this.emitLengthPrefixedBytes(encodeUint(dataCount))
+		this.emitLengthPrefixedBytes(encodeUnsignedLeb128(dataCount))
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -594,7 +596,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(functionDefinitions.length)
+		sectionEncoder.emitUnsignedLeb128(functionDefinitions.length)
 
 		for (const entry of functionDefinitions) {
 			const entryEmitter = createWasmEncoder()
@@ -609,11 +611,11 @@ export class WasmEncoder {
 
 			const localTypes = Object.values(entry.locals ?? {})
 
-			entryEmitter.emitUint(localTypes.length)
+			entryEmitter.emitUnsignedLeb128(localTypes.length)
 
 			for (const localEntry of localTypes) {
 				///entryEmitter.emitUint(localEntry.count)
-				entryEmitter.emitUint(1)
+				entryEmitter.emitUnsignedLeb128(1)
 				entryEmitter.emitValueType(localEntry)
 			}
 
@@ -638,7 +640,7 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUint(dataEntries.length)
+		sectionEncoder.emitUnsignedLeb128(dataEntries.length)
 
 		for (const entry of dataEntries) {
 			sectionEncoder.emitByte(entry.flags)
@@ -647,7 +649,7 @@ export class WasmEncoder {
 				sectionEncoder.emitExpression(entry.instructions, instructionContext)
 				sectionEncoder.emitLengthPrefixedBytes(entry.data)
 			} else if (entry.flags === DataEntryType.Active) {
-				sectionEncoder.emitUint(entry.memoryIndex)
+				sectionEncoder.emitUnsignedLeb128(entry.memoryIndex)
 				sectionEncoder.emitExpression(entry.instructions, instructionContext)
 				sectionEncoder.emitLengthPrefixedBytes(entry.data)
 			} else if (entry.flags === DataEntryType.Passive) {
@@ -677,9 +679,9 @@ export class WasmEncoder {
 	// Instruction emitters
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	emitLengthPrefixedInstructionsArray(instructionsArray: Instructions, context: InstructionContext) {
-		const flattenedInstructions = flattenInstructions(instructionsArray)
+		const flattenedInstructions = WasmEncoder.flattenInstructions(instructionsArray)
 
-		this.emitUint(flattenedInstructions.length)
+		this.emitUnsignedLeb128(flattenedInstructions.length)
 
 		this.emitFlattenedInstructions(flattenedInstructions, context)
 
@@ -688,7 +690,7 @@ export class WasmEncoder {
 	}
 
 	emitInstructions(instructions: Instructions, context: InstructionContext) {
-		const flattenedInstructions = flattenInstructions(instructions)
+		const flattenedInstructions = WasmEncoder.flattenInstructions(instructions)
 
 		this.emitFlattenedInstructions(flattenedInstructions, context)
 	}
@@ -768,7 +770,7 @@ export class WasmEncoder {
 	}
 
 	emitInstruction(instruction: Instruction, context: InstructionContext) {
-		this.emitBytes(opcodeNameToBytes[instruction.opcodeName])
+		this.emitBytes(WasmEncoder.opcodeNameToBytes(instruction.opcodeName))
 
 		if (instruction.immediatesEmitter) {
 			instruction.immediatesEmitter(this, context)
@@ -804,11 +806,11 @@ export class WasmEncoder {
 		} else if (opcode <= 0xffff) {
 			// Prefixed opcode: a literal prefix byte followed by the (LEB128) sub-opcode.
 			this.emitByte((opcode >>> 8) & 0xff)
-			this.emitUint(opcode & 0xff)
+			this.emitUnsignedLeb128(opcode & 0xff)
 		} else {
 			// 3-byte prefixed opcode (e.g. 0xfd000 | sub): literal prefix + LEB128 sub-opcode.
 			this.emitByte((opcode >>> 12) & 0xff)
-			this.emitUint(opcode & 0xfff)
+			this.emitUnsignedLeb128(opcode & 0xfff)
 		}
 	}
 
@@ -825,11 +827,11 @@ export class WasmEncoder {
 
 		if (entry.maximum !== undefined) {
 			this.emitByte(i64 ? 0x05 : 0x01)
-			this.emitUint(entry.minimum)
-			this.emitUint(entry.maximum)
+			this.emitUnsignedLeb128(entry.minimum)
+			this.emitUnsignedLeb128(entry.maximum)
 		} else {
 			this.emitByte(i64 ? 0x04 : 0x00)
-			this.emitUint(entry.minimum)
+			this.emitUnsignedLeb128(entry.minimum)
 		}
 	}
 
@@ -849,7 +851,7 @@ export class WasmEncoder {
 	emitStructType(structType: StructType) {
 		const fields = structType.fields
 
-		this.emitUint(fields.length)
+		this.emitUnsignedLeb128(fields.length)
 
 		for (const field of fields) {
 			this.emitStorageType(field.storageType)
@@ -858,7 +860,7 @@ export class WasmEncoder {
 	}
 
 	emitLengthPrefixedValueTypeArray(valueTypes: ValueType[]) {
-		this.emitUint(valueTypes.length)
+		this.emitUnsignedLeb128(valueTypes.length)
 
 		for (const dataType of valueTypes) {
 			this.emitValueType(dataType)
@@ -886,7 +888,7 @@ export class WasmEncoder {
 			}
 
 			// Concrete type index heaptype: positive s33 (signed LEB128).
-			this.emitInt(typeIndex)
+			this.emitSignedLeb128(typeIndex)
 		} else {
 			// Abstract heap type: a single byte in the range 0x69..0x74.
 			this.emitByte(heapType)
@@ -912,7 +914,7 @@ export class WasmEncoder {
 			}
 
 			// Multi-result block type: positive s33 (signed LEB128) type index.
-			this.emitInt(typeIndex)
+			this.emitSignedLeb128(typeIndex)
 		} else {
 			this.emitValueType(returns)
 		}
@@ -932,19 +934,19 @@ export class WasmEncoder {
 		if (kind === ReferenceTypeKind.ShortTypeId) {
 			this.emitByte(refType.typeId)
 		} else if (kind === ReferenceTypeKind.ShortTypeIndex) {
-			this.emitInt(refType.typeIndex)
+			this.emitSignedLeb128(refType.typeIndex)
 		} else if (kind === ReferenceTypeKind.LongNullableTypeId) {
 			this.emitByte(0x63)
 			this.emitByte(refType.typeId)
 		} else if (kind === ReferenceTypeKind.LongNullableTypeIndex) {
 			this.emitByte(0x63)
-			this.emitInt(refType.typeIndex)
+			this.emitSignedLeb128(refType.typeIndex)
 		} else if (kind === ReferenceTypeKind.LongNonNullableTypeId) {
 			this.emitByte(0x64)
 			this.emitByte(refType.typeId)
 		} else if (kind === ReferenceTypeKind.LongNonNullableTypeIndex) {
 			this.emitByte(0x64)
-			this.emitInt(refType.typeIndex)
+			this.emitSignedLeb128(refType.typeIndex)
 		} else {
 			throw new Error(`Invalid reference type kind: ${kind}`)
 		}
@@ -954,14 +956,14 @@ export class WasmEncoder {
 	// Low-level emitters
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 	emitLengthPrefixedBytes(bytes: ArrayLike<number>) {
-		this.emitUint(bytes.length)
+		this.emitUnsignedLeb128(bytes.length)
 		this.emitBytes(bytes)
 	}
 
 	emitString(str: string) {
 		const content = encodeUtf8(str)
 
-		this.emitUint(content.length)
+		this.emitUnsignedLeb128(content.length)
 		this.emitBytes(content)
 	}
 
@@ -981,19 +983,19 @@ export class WasmEncoder {
 		this.outputBytes.appendValues(bytes)
 	}
 
-	emitInt(value: number | bigint) {
-		this.emitBytes(encodeInt(value))
+	emitSignedLeb128(value: number | bigint) {
+		this.emitBytes(encodeSignedLeb128(value))
 	}
 
-	emitUint(value: number | bigint) {
-		this.emitBytes(encodeUint(value))
+	emitUnsignedLeb128(value: number | bigint) {
+		this.emitBytes(encodeUnsignedLeb128(value))
 	}
 
 	emitLengthPrefixedUintArray(elements: ArrayLike<number>) {
-		this.emitUint(elements.length)
+		this.emitUnsignedLeb128(elements.length)
 
 		for (let i = 0; i < elements.length; i++) {
-			this.emitUint(elements[i])
+			this.emitUnsignedLeb128(elements[i])
 		}
 	}
 
@@ -1086,555 +1088,43 @@ export class WasmEncoder {
 			}
 		}
 	}
-}
 
-export const encodeInt = encodeSignedLeb128
-export const encodeUint = encodeUnsignedLeb128
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Precomputed opcode binary encoding lookup table
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export const opcodeNameToBytes: { [key in keyof typeof wasmOpcodes]: number[] } = {} as any
-
-function initializeEncodedOpcodesTable() {
-	const opcodeEncoder = createWasmEncoder()
-
-	for (const key of Object.keys(wasmOpcodes)) {
-		opcodeEncoder.reset()
-		opcodeEncoder.emitOpcode((wasmOpcodes as any)[key]);
-
-		(opcodeNameToBytes as any)[key] = Array.from(opcodeEncoder.bytes)
-	}
-}
-
-initializeEncodedOpcodesTable()
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Constants and enumerations
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-const preamble = [
-	0x00, 0x61, 0x73, 0x6d, // Magic cookie
-	0x01, 0x00, 0x00, 0x00, // Version number
-]
-
-export const enum SectionId {
-	Custom, Types, Imports, Functions, Tables, Memory, Globals, Exports, Start, Elements, Code, Data, DataCount, Tag
-}
-
-export type ValueType = NumberType | VectorType | ReferenceType
-export type StorageType = ValueType | PackedType
-
-export const enum DataTypeKind {
-	Value,
-	Reference
-}
-
-export const enum NumberType {
-	i32 = 0x7f,
-	i64 = 0x7e,
-	f32 = 0x7d,
-	f64 = 0x7c,
-}
-
-export const enum VectorType {
-	v128 = 0x7b
-}
-
-export const enum PackedType {
-	i8 = 0x78,
-	i16 = 0x77,
-}
-
-export const enum ImportKind {
-	Function, Table, Memory, Global, Tag
-}
-
-export const enum ExportKind {
-	Function, Table, Memory, Global, Tag
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// GC types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export type SubtypeOrRecursiveType = Subtype | RecursiveType
-
-export interface RecursiveType {
-	name: string
-	subtypes: Subtype[]
-}
-
-export interface Subtype {
-	name: string
-	type: CompositeType
-	supertypeIndexes?: number[]
-	final?: boolean
-}
-
-export type CompositeType = ArrayType | StructType | FunctionSignature
-
-export type ArrayType = FieldType
-
-export interface StructType {
-	fields: FieldType[]
-}
-
-export interface FieldType {
-	storageType: StorageType
-	mutable?: boolean
-}
-
-export interface FunctionSignature {
-	paramTypes: ValueType[]
-	returnTypes: ValueType[]
-}
-
-function isArrayType(compositeType: CompositeType): compositeType is ArrayType {
-	return (compositeType as ArrayType).storageType !== undefined
-}
-
-function isStructType(compositeType: CompositeType): compositeType is StructType {
-	return (compositeType as StructType).fields !== undefined
-}
-
-function isRecursiveType(recursiveTypeOrSubtype: SubtypeOrRecursiveType): recursiveTypeOrSubtype is RecursiveType {
-	return (recursiveTypeOrSubtype as RecursiveType).subtypes !== undefined
-}
-
-function isFunctionSignature(compositeType: CompositeType): compositeType is FunctionSignature {
-	return (compositeType as FunctionSignature).paramTypes !== undefined &&
-		(compositeType as FunctionSignature).returnTypes !== undefined
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Reference types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export type ReferenceType =
-	ShortTypeIdReferenceType |
-	ShortTypeIndexReferenceType |
-	LongNullableTypeIdReferenceType |
-	LongNullableTypeIndexReferenceType |
-	LongNonNullableTypeIdReferenceType |
-	LongNonNullableTypeIndexReferenceType
-
-export interface ShortTypeIdReferenceType {
-	kind: ReferenceTypeKind.ShortTypeId
-	typeId: HeapType
-}
-
-export interface ShortTypeIndexReferenceType {
-	kind: ReferenceTypeKind.ShortTypeIndex
-	typeIndex: number
-}
-
-export interface LongNullableTypeIdReferenceType {
-	kind: ReferenceTypeKind.LongNullableTypeId
-	typeId: HeapType
-}
-
-export interface LongNullableTypeIndexReferenceType {
-	kind: ReferenceTypeKind.LongNullableTypeIndex
-	typeIndex: number
-}
-
-export interface LongNonNullableTypeIdReferenceType {
-	kind: ReferenceTypeKind.LongNonNullableTypeId
-	typeId: HeapType
-}
-
-export interface LongNonNullableTypeIndexReferenceType {
-	kind: ReferenceTypeKind.LongNonNullableTypeIndex
-	typeIndex: number
-}
-
-export const enum ReferenceTypeKind {
-	ShortTypeId,
-	ShortTypeIndex,
-	LongNullableTypeId,
-	LongNullableTypeIndex,
-	LongNonNullableTypeId,
-	LongNonNullableTypeIndex,
-}
-
-export const enum HeapType {
-	exn = 0x69,
-	nofunc = 0x73,
-	noextern = 0x72,
-	none = 0x71,
-	func = 0x70,
-	extern = 0x6f,
-	any = 0x6e,
-	eq = 0x6d,
-	i31 = 0x6c,
-	struct = 0x6b,
-	array = 0x6a,
-	noexn = 0x74,
-}
-
-export const emptyType = 0x40
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Module types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface WasmModuleDefinition {
-	functions?: FunctionDefinition[]
-	globals?: GlobalEntry[]
-	customTypes?: SubtypeOrRecursiveType[]
-	imports?: ImportEntry[]
-	memories?: MemoryEntry[]
-	start?: StartEntry
-	tables?: TableEntry[]
-	elements?: ElementEntry[]
-	data?: DataEntry[]
-	tags?: TagEntry[]
-	customSections?: CustomSection[]
-}
-
-export interface FunctionDefinition {
-	name: string
-	export?: boolean
-	params?: FunctionParams
-	returns?: ValueType | ValueType[]
-	locals?: FunctionLocals
-	instructions: Instructions
-}
-
-export type FunctionParams = { [paramName: string]: ValueType }
-export type FunctionLocals = { [localName: string]: ValueType }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Custom section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface CustomSection {
-	name: string
-	content: ArrayLike<number>
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Imports section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface ImportEntry {
-	moduleName: string
-	importName: string
-	description: ImportDescription
-}
-
-type ImportDescription = FunctionImportEntry | TableImportEntry | MemoryImportEntry | GlobalImportEntry | TagImportEntry
-
-export interface FunctionImportEntry {
-	type: ImportKind.Function
-	index: number
-}
-
-export interface TableImportEntry {
-	type: ImportKind.Table
-	tableEntry: TableEntry
-}
-
-export interface MemoryImportEntry {
-	type: ImportKind.Memory
-	memoryLimits: Limits
-}
-
-export interface GlobalImportEntry {
-	type: ImportKind.Global
-	globalType: GlobalType
-}
-
-export interface TagImportEntry {
-	type: ImportKind.Tag
-	typeIndex: number
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Tables section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface TableEntry {
-	name: string
-	referenceType: ReferenceType
-	limits: Limits
-	export?: boolean
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Memory section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface MemoryEntry extends Limits {
-	name: string
-	export?: boolean
-}
-
-export interface Limits {
-	// `minimum`/`maximum` may be `bigint` for memory64 (and table64) where the
-	// limits are encoded as 64-bit unsigned integers.
-	minimum: number | bigint
-	maximum?: number | bigint
-	indexType?: 'i32' | 'i64'
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Globals section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface GlobalType {
-	type: ValueType
-	mutable: boolean
-}
-
-export interface GlobalEntry extends GlobalType {
-	name: string
-	instructions: Instructions
-	export?: boolean
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Exports section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface ExportEntry {
-	name: string
-	kind: ExportKind
-	index: number
-}
-
-export interface TagEntry {
-	name: string
-	typeName: string
-	export?: boolean
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Start section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export interface StartEntry {
-	functionIndex: number
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Data section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export type DataEntry =
-	ActiveMemoryZeroDataEntry | // 0
-	ActiveDataEntry | // 1
-	PassiveDataEntry // 2
-
-export interface ActiveMemoryZeroDataEntry { // 0
-	name: string
-
-	flags: DataEntryType.ActiveMemoryZero
-
-	instructions: Instructions
-	data: ArrayLike<number>
-}
-
-export interface ActiveDataEntry { // 1
-	name: string
-
-	flags: DataEntryType.Active
-
-	instructions: Instructions
-	memoryIndex: number
-	data: ArrayLike<number>
-}
-
-export interface PassiveDataEntry { // 2
-	name: string
-
-	flags: DataEntryType.Passive
-
-	data: ArrayLike<number>
-}
-
-export const enum DataEntryType {
-	ActiveMemoryZero,
-	Passive,
-	Active
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Elements section types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export type ElementEntry =
-	ActiveTableZeroElementEntry | // 0
-	PassiveElementEntry | // 1
-	ActiveElementEntry | // 2
-	DeclarativeElementEntry | // 3
-	ActiveTableZeroWithInstructionsElementEntry | // 4
-	PassiveWithInstructionsElementEntry | // 5
-	ActiveWithInstructionsElementEntry | // 6
-	DeclarativeWithInstructionsElementEntry // 7
-
-export interface ActiveTableZeroElementEntry { // 0
-	name: string
-
-	flags: ElementEntryType.ActiveTableZero
-
-	instructions: Instructions
-	functionIndexes: ArrayLike<number>
-}
-
-export interface PassiveElementEntry { // 1
-	name: string
-
-	flags: ElementEntryType.Passive
-
-	functionIndexes: ArrayLike<number>
-}
-
-export interface ActiveElementEntry { // 2
-	name: string
-
-	flags: ElementEntryType.Active
-
-	tableIndex: number
-	instructions: Instructions
-	functionIndexes: ArrayLike<number>
-}
-
-export interface DeclarativeElementEntry { // 3
-	name: string
-
-	flags: ElementEntryType.Declarative
-
-	functionIndexes: ArrayLike<number>
-}
-
-export interface ActiveTableZeroWithInstructionsElementEntry { // 4
-	name: string
-
-	flags: ElementEntryType.ActiveTableZeroWithInstructions
-
-	instructions: Instructions
-	functionInstructions: Instructions
-}
-
-export interface PassiveWithInstructionsElementEntry { // 5
-	name: string
-
-	flags: ElementEntryType.PassiveWithInstructions
-
-	referenceType: ReferenceType
-	functionInstructions: Instructions
-}
-
-export interface ActiveWithInstructionsElementEntry { // 6
-	name: string
-
-	flags: ElementEntryType.ActiveWithInstructions
-
-	tableIndex: number
-	instructions: Instructions
-	referenceType: ReferenceType
-	functionInstructions: Instructions
-}
-
-export interface DeclarativeWithInstructionsElementEntry { // 7
-	name: string
-
-	flags: ElementEntryType.DeclarativeWithInstructions
-
-	referenceType: ReferenceType
-	functionInstructions: Instructions
-}
-
-export const enum ElementEntryType {
-	ActiveTableZero,
-	Passive,
-	Active,
-	Declarative,
-	ActiveTableZeroWithInstructions,
-	PassiveWithInstructions,
-	ActiveWithInstructions,
-	DeclarativeWithInstructions,
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Opcode predicates
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Control-flow opcode categories used by the flattening logic. Frames are label-defining
-// blocks. Clauses (`else`/`catch`/`catch_all`/`delegate`) belong to a preceding frame.
-// Centralising them as predicates (instead of duplicated inline comparisons or one-off sets)
-// gives every check a single source of truth that is reused below.
-function isIfClauseOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'else'
-}
-
-function isCatchClauseOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'catch' || opcodeName === 'catch_all'
-}
-
-function isTryContinuationOpcode(opcodeName: OpcodeName): boolean {
-	return isCatchClauseOpcode(opcodeName) || opcodeName === 'delegate'
-}
-
-function isClauseOpcode(opcodeName: OpcodeName): boolean {
-	return isIfClauseOpcode(opcodeName) || isTryContinuationOpcode(opcodeName)
-}
-
-function isFrameOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'block' || opcodeName === 'loop' || opcodeName === 'if' || opcodeName === 'try' || opcodeName === 'try_table'
-}
-
-function isTryFrameOpcode(opcodeName: OpcodeName): boolean {
-	return opcodeName === 'try' || opcodeName === 'try_table'
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// Instruction types
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-export type Instructions = (Instruction | Instructions)[]
-
-export interface Instruction {
-	opcodeName: OpcodeName
-	args: any[]
-
-	immediatesEmitter?: ImmediatesEmitterFunc
-}
-
-export interface BlockInstruction extends Instruction {
-	opcodeName: 'block' | 'loop' | 'if' | 'else' | 'try' | 'catch' | 'catch_all' | 'try_table'
-	immediatesEmitter?: ImmediatesEmitterFunc
-	blockName: string
-
-	bodyInstructions: Instruction[]
-}
-
-function flattenInstructions(instructions: Instructions): Instruction[] {
-	let result: Instruction[] = []
-
-	for (const element of instructions) {
-		if (Array.isArray(element)) {
-			result = [...result, ...flattenInstructions(element)]
-		} else {
-			result.push(element)
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Private static helpers
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	private static flattenInstructions(instructions: Instructions): Instruction[] {
+		let result: Instruction[] = []
+
+		for (const element of instructions) {
+			if (Array.isArray(element)) {
+				result = [...result, ...WasmEncoder.flattenInstructions(element)]
+			} else {
+				result.push(element)
+			}
 		}
+
+		return result
 	}
 
-	return result
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Precomputed opcode binary encoding lookup table
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	private static opcodeNameToBytesLookup?: { [key in keyof typeof wasmOpcodes]: number[] }
+
+	static opcodeNameToBytes(opcodeName: OpcodeName): number[] {
+		if (!WasmEncoder.opcodeNameToBytesLookup) {
+			(WasmEncoder.opcodeNameToBytesLookup as any) = {}
+
+			const opcodeEncoder = createWasmEncoder()
+
+			for (const key of Object.keys(wasmOpcodes)) {
+				opcodeEncoder.reset()
+				opcodeEncoder.emitOpcode((wasmOpcodes as any)[key]);
+
+				(WasmEncoder.opcodeNameToBytesLookup as any)[key] = Array.from(opcodeEncoder.bytes)
+			}
+		}
+
+		return WasmEncoder.opcodeNameToBytesLookup![opcodeName]
+	}
 }
-
-export function isBlockInstruction(instruction: Instruction): instruction is BlockInstruction {
-	return Array.isArray((instruction as BlockInstruction).bodyInstructions)
-}
-
-export type ImmediatesEmitterFunc = (emitter: WasmEncoder, context: InstructionContext) => void
-
-export interface InstructionContext {
-	functionsLookup: Map<string, number>
-	typesLookup: Map<string, number>
-	tablesLookup: Map<string, number>
-	memoriesLookup: Map<string, number>
-	globalsLookup: Map<string, number>
-	localsLookup: Map<string, number>
-	elementsLookup: Map<string, number>
-	dataLookup: Map<string, number>
-	tagsLookup: Map<string, number>
-
-	blockStack: string[]
-
-	// Stack of *try* block names only (no `if`/`loop`/`block`/`else`/`catch`).
-	// `rethrow`/`delegate` reference an enclosing try by name, and their label must
-	// count try blocks (excluding the current one), so they resolve against this
-	// dedicated stack rather than the full `blockStack`.
-	tryBlockStack: string[]
-}
-
-export type ImmediateType = number | bigint

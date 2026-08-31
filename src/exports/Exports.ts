@@ -1,3 +1,5 @@
 export * from '../wasm/WasmEncoder.js'
-export { wasmOpcodes } from '../wasm/Opcodes.js'
 export { Op } from '../wasm/Ops.js'
+export { wasmOpcodes } from '../wasm/Opcodes.js'
+export * from '../wasm/Types.js'
+export * from '../wasm/Predicates.js'
