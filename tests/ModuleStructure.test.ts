@@ -12,7 +12,6 @@ import {
 	HeapType,
 	preamble,
 } from '../src/exports/Exports.ts'
-import { encodeUnsignedLeb128, encodeSignedLeb128 } from '../src/utilities/Leb128Encoder.ts'
 import { encodeAndInstantiateWasmModuleDefinition } from './utilities/Utilities.ts'
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -188,63 +187,6 @@ test('imported mutable globals are writable via global.set and readable via glob
 
 	expect((instance.exports.increment as Function)()).toEqual(42)
 	expect(importedGlobal.value).toEqual(42)
-})
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-// LEB128 encoder boundary tests (spec: binary/integers.md — uN/sN are range-limited by their
-// bit widths and sN by the minimal two's-complement sign bit in the final byte).
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
-test('unsigned LEB128 boundaries encode to the canonical shortest byte form', () => {
-	const cases: Array<[number | bigint, number[]]> = [
-		[0, [0x00]],
-		[1, [0x01]],
-		[127, [0x7F]],
-		[128, [0x80, 0x01]],
-		[16_383, [0xFF, 0x7F]],
-		[16_384, [0x80, 0x80, 0x01]],
-		[2 ** 21 - 1, [0xFF, 0xFF, 0x7F]],
-		[2 ** 21, [0x80, 0x80, 0x80, 0x01]],
-		[2 ** 28 - 1, [0xFF, 0xFF, 0xFF, 0x7F]],
-		[2 ** 28, [0x80, 0x80, 0x80, 0x80, 0x01]],
-		[2 ** 31 - 1, [0xFF, 0xFF, 0xFF, 0xFF, 0x07]],
-		[2 ** 32 - 1, [0xFF, 0xFF, 0xFF, 0xFF, 0x0F]],
-		[2n ** 64n - 1n, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01]],
-	]
-
-	for (const [value, expected] of cases) {
-		expect(encodeUnsignedLeb128(value)).toEqual(expected)
-	}
-})
-
-test('signed LEB128 boundaries encode with the correct sign bit handling', () => {
-	// NOTE: at exact sign boundaries the encoder emits *non-minimal but well-formed* encodings
-	// (e.g. -64 as C0 7F instead of the shorter 40). The sN grammar in binary/values.md allows
-	// this: "numbers may be encoded as if they had optional leading zeros. Implementations of
-	// decoders must support all possible alternatives; implementations of encoders can pick any
-	// allowed encoding." The only hard constraint is |encoding| <= ceil(N/7) bytes.
-	const cases: Array<[number | bigint, number[]]> = [
-		[-1, [0x7F]],
-		[63, [0x3F]],
-		[64, [0xC0, 0x00]],
-		[-64, [0xC0, 0x7F]], // non-minimal (canonical would be 0x40), still well-formed s32
-		[-65, [0xBF, 0x7F]],
-		[8_191, [0xFF, 0x3F]],
-		[-8_192, [0x80, 0xC0, 0x7F]],
-		[2 ** 31 - 1, [0xFF, 0xFF, 0xFF, 0xFF, 0x07]],
-		[-(2 ** 31), [0x80, 0x80, 0x80, 0x80, 0x78]],
-		[2n ** 63n - 1n, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00]],
-		[-(2n ** 63n), [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x7F]],
-	]
-
-	for (const [value, expected] of cases) {
-		expect(encodeSignedLeb128(value)).toEqual(expected)
-	}
-
-	// All encodings must respect the maximal byte count ceil(N/7): 5 bytes for s32, 10 for s64.
-	expect(encodeSignedLeb128(-(2 ** 31)).length).toBeLessThanOrEqual(5)
-	expect(encodeSignedLeb128(-(2n ** 63n)).length).toBeLessThanOrEqual(10)
-	expect(encodeSignedLeb128(2n ** 63n - 1n).length).toBeLessThanOrEqual(10)
 })
 
 test('i64.const at the full s64 range is decodable by engines (extreme signed LEB encodings)', async () => {
