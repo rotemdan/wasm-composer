@@ -85,24 +85,24 @@ export function encodeSignedLeb128(value: number | bigint) {
 }
 
 function encodeSignedInt32(value: number) {
-	const absValue = Math.abs(value | 0)
+	value |= 0
 
-	if (absValue < (2 ** 6)) {
+	if (value >= -64 && value < 64) {
 		return [
 			(value & 0b01111111)
 		]
-	} else if (absValue < (2 ** 13)) {
+	} else if (value >= -8192 && value < 8192) {
 		return [
 			(value & 0b01111111) | 0b10000000,
 			(value >> 7) & 0b01111111
 		]
-	} else if (absValue < (2 ** 20)) {
+	} else if (value >= -1048576 && value < 1048576) {
 		return [
 			(value & 0b01111111) | 0b10000000,
 			((value >> 7) & 0b01111111) | 0b10000000,
 			(value >> 14) & 0b01111111
 		]
-	} else if (absValue < (2 ** 27)) {
+	} else if (value >= -134217728 && value < 134217728) {
 		return [
 			(value & 0b01111111) | 0b10000000,
 			((value >> 7) & 0b01111111) | 0b10000000,
