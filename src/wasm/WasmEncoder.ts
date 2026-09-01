@@ -6,6 +6,7 @@ import { Op } from './Ops.js'
 import { createDynamicUint8Array } from '../utilities/DynamicUint8Array.js'
 import { WasmModuleDefinition, ExportEntry, InstructionContext, FunctionSignature, Subtype, SubtypeOrRecursiveType, RecursiveType, CompositeType, ImportEntry, FunctionDefinition, TableEntry, MemoryEntry, GlobalEntry, StartEntry, TagEntry, ElementEntry, ElementEntryType, DataEntry, DataEntryType, CustomSection, Instructions, Instruction, Limits, GlobalType, StructType, HeapType, emptyType, ReferenceType, ReferenceTypeKind, ExportKind, ImportKind, preamble, SectionId, StorageType, ValueType } from './Types.js'
 import { isRecursiveType, isArrayType, isStructType, isFunctionSignature, isClauseOpcode, isTryContinuationOpcode, isFrameOpcode, isTryFrameOpcode, isCatchClauseOpcode, isIfClauseOpcode, isBlockInstruction } from './Predicates.js'
+import { computeForwardReferenceGroup } from './TypesSectionHelpers.js'
 
 export function encodeWasmModule(moduleDefinition: WasmModuleDefinition) {
 	const encoder = createWasmEncoder()
@@ -267,10 +268,41 @@ export class WasmEncoder {
 
 		const sectionEncoder = createWasmEncoder()
 
-		sectionEncoder.emitUnsignedLeb128(types.length)
+		// A leading span of entries needs a shared recursive group when they (or entries they
+		// pull in) forward-reference later types. See `computeForwardReferenceGroup` above.
+		const forwardGroup = computeForwardReferenceGroup(types)
+		const groupEnd = forwardGroup === undefined
+			? 0
+			: forwardGroup.firstEntry + forwardGroup.entryCount
 
-		for (const type of types) {
-			sectionEncoder.emitSubtypeOrRecursiveType(type)
+		// The section item count is over *recursive types* (`binary/types.md`: `list(rectype)`),
+		// while the type index space counts every subtype across all groups. When the bundle is
+		// emitted, several entries merge into a single `rec` item.
+		const itemsEmitted = types.length - (forwardGroup === undefined ? 0 : forwardGroup.entryCount - 1)
+
+		sectionEncoder.emitUnsignedLeb128(itemsEmitted)
+
+		for (let index = 0; index < types.length; index++) {
+			if (forwardGroup !== undefined && index === forwardGroup.firstEntry) {
+				sectionEncoder.emitByte(0x4e)
+				sectionEncoder.emitUnsignedLeb128(forwardGroup.subtypeCount)
+
+				for (let subIndex = index; subIndex < groupEnd; subIndex++) {
+					const entry = types[subIndex]
+
+					// The recursive group makes the members mutually visible, so recursive
+					// entries inside it are flattened to their subtypes.
+					if (isRecursiveType(entry)) {
+						entry.subtypes.forEach(subtype => sectionEncoder.emitSubtype(subtype))
+					} else {
+						sectionEncoder.emitSubtype(entry)
+					}
+				}
+
+				index = groupEnd - 1
+			} else {
+				sectionEncoder.emitSubtypeOrRecursiveType(types[index])
+			}
 		}
 
 		this.emitLengthPrefixedBytes(sectionEncoder.bytes)
